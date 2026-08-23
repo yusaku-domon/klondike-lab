@@ -2,6 +2,7 @@
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { CARD_MOVE_ANIMATION_MS } from '../animationTiming'
 import { createCard, RANKS } from '../domain/cards'
 import type { GameState } from '../domain/deal'
 import { useGameStore } from '../stores/game'
@@ -196,6 +197,62 @@ describe('GameBoard', () => {
       await wrapper.vm.$nextTick()
 
       expect(wrapper.find('.auto-complete-prompt').exists()).toBe(false)
+    })
+  })
+
+  describe('input lock during move animation', () => {
+    it('ignores a second click while the previous move is still animating, then accepts input again', async () => {
+      const { wrapper, store } = mountBoard()
+      store.state = emptyState({
+        // A face-down card keeps isFullyRevealed false, so the unrelated
+        // auto-complete prompt (which would itself block board clicks)
+        // never appears and confounds this test.
+        stock: [createCard('clubs', 9, false)],
+        waste: [createCard('spades', 13, true)],
+        tableau: [[], [createCard('hearts', 13, true)], [], [], [], [], []],
+      })
+      await wrapper.vm.$nextTick()
+
+      // First move: waste King -> empty column 0.
+      await wrapper.get('[data-testid="card-spades-13"]').trigger('click')
+      await wrapper.get('[data-testid="tableau-empty-0"]').trigger('click')
+      expect(store.state.tableau[0]).toEqual([createCard('spades', 13, true)])
+      expect(store.isAnimating).toBe(true)
+
+      // Second, otherwise-legal move attempted mid-animation must be ignored.
+      await wrapper.get('[data-testid="card-hearts-13"]').trigger('click')
+      await wrapper.get('[data-testid="tableau-empty-2"]').trigger('click')
+      await wrapper.vm.$nextTick()
+      expect(store.state.tableau[1]).toEqual([createCard('hearts', 13, true)])
+      expect(store.state.tableau[2]).toEqual([])
+
+      vi.advanceTimersByTime(CARD_MOVE_ANIMATION_MS)
+      await wrapper.vm.$nextTick()
+      expect(store.isAnimating).toBe(false)
+
+      // Now the same move is accepted.
+      await wrapper.get('[data-testid="card-hearts-13"]').trigger('click')
+      await wrapper.get('[data-testid="tableau-empty-2"]').trigger('click')
+      expect(store.state.tableau[1]).toEqual([])
+      expect(store.state.tableau[2]).toEqual([createCard('hearts', 13, true)])
+    })
+
+    it('also ignores stock clicks while animating', async () => {
+      const { wrapper, store } = mountBoard()
+      store.state = emptyState({
+        stock: [createCard('clubs', 1, false), createCard('clubs', 2, false)],
+      })
+      await wrapper.vm.$nextTick()
+
+      await wrapper.get('[data-testid="stock-pile"]').trigger('click')
+      expect(store.state.waste).toHaveLength(1)
+
+      await wrapper.get('[data-testid="stock-pile"]').trigger('click')
+      expect(store.state.waste).toHaveLength(1)
+
+      vi.advanceTimersByTime(CARD_MOVE_ANIMATION_MS)
+      await wrapper.get('[data-testid="stock-pile"]').trigger('click')
+      expect(store.state.waste).toHaveLength(2)
     })
   })
 })

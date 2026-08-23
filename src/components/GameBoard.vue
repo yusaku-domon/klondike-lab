@@ -97,6 +97,7 @@ watch(
 )
 
 function confirmAutoComplete() {
+  if (store.isAnimating) return
   store.autoComplete()
   showAutoCompletePrompt.value = false
 }
@@ -106,7 +107,7 @@ function dismissAutoCompletePrompt() {
 }
 
 function handleClick(target: ClickTarget) {
-  if (!store.isPlayable) return
+  if (!store.isPlayable || store.isAnimating) return
 
   if (target.type === 'stock') {
     store.clickStock()

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { CARD_MOVE_ANIMATION_MS } from '../animationTiming'
 import { createCard, RANKS } from '../domain/cards'
 import { createInitialGameState, type GameState } from '../domain/deal'
 import { isCompleteUniqueDeck } from '../domain/invariants'
@@ -393,6 +394,75 @@ describe('useGameStore', () => {
 
       expect(store.state).toBe(before)
       expect(store.canUndo).toBe(false)
+    })
+  })
+
+  describe('isAnimating (UI-facing move-animation lock)', () => {
+    it('turns on after a successful move and off once the animation duration elapses', () => {
+      const store = useGameStore()
+      store.state = emptyState({ waste: [createCard('spades', 13, true)] })
+      expect(store.isAnimating).toBe(false)
+
+      store.move({ from: { type: 'waste' }, to: { type: 'tableau', column: 0 } })
+
+      expect(store.isAnimating).toBe(true)
+      vi.advanceTimersByTime(CARD_MOVE_ANIMATION_MS - 1)
+      expect(store.isAnimating).toBe(true)
+      vi.advanceTimersByTime(1)
+      expect(store.isAnimating).toBe(false)
+    })
+
+    it('does not turn on for a rejected, no-op move', () => {
+      const store = useGameStore()
+      const command: MoveCommand = { from: { type: 'waste' }, to: { type: 'tableau', column: 0 } }
+
+      store.move(command)
+
+      expect(store.isAnimating).toBe(false)
+    })
+
+    it('turns on after clickStock and after undo as well', () => {
+      const store = useGameStore()
+      store.state = emptyState({ stock: [createCard('clubs', 1, false)] })
+
+      store.clickStock()
+      expect(store.isAnimating).toBe(true)
+      vi.advanceTimersByTime(CARD_MOVE_ANIMATION_MS)
+      expect(store.isAnimating).toBe(false)
+
+      store.undo()
+      expect(store.isAnimating).toBe(true)
+      vi.advanceTimersByTime(CARD_MOVE_ANIMATION_MS)
+      expect(store.isAnimating).toBe(false)
+    })
+
+    it('is reset immediately by newGame even mid-animation', () => {
+      const store = useGameStore()
+      store.state = emptyState({ waste: [createCard('spades', 13, true)] })
+      store.move({ from: { type: 'waste' }, to: { type: 'tableau', column: 0 } })
+      expect(store.isAnimating).toBe(true)
+
+      store.newGame(1)
+
+      expect(store.isAnimating).toBe(false)
+
+      // The old timeout must not fire later and flip it back on/off unexpectedly.
+      vi.advanceTimersByTime(CARD_MOVE_ANIMATION_MS)
+      expect(store.isAnimating).toBe(false)
+    })
+
+    it('does not gate the store actions themselves — they remain callable at any time', () => {
+      const store = useGameStore()
+      store.state = emptyState({
+        stock: [createCard('clubs', 1, false), createCard('clubs', 2, false)],
+      })
+
+      // Two real actions back-to-back with no time advanced between them:
+      // the store's own API is not the thing enforcing the lock.
+      store.clickStock()
+      store.clickStock()
+
+      expect(store.state.waste).toHaveLength(2)
     })
   })
 })

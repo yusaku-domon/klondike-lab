@@ -24,6 +24,16 @@ function togglePause() {
   }
 }
 
+function handleUndo() {
+  if (store.isAnimating) return
+  store.undo()
+}
+
+function handleAutoComplete() {
+  if (store.isAnimating) return
+  store.autoComplete()
+}
+
 const formattedElapsed = computed(() => {
   const total = store.state.elapsedSeconds
   const minutes = Math.floor(total / 60)
@@ -36,11 +46,17 @@ const formattedElapsed = computed(() => {
   <div class="toolbar">
     <div class="actions">
       <button type="button" @click="startNewGame">新しいゲーム</button>
-      <button type="button" :disabled="!store.canUndo" @click="store.undo()">Undo</button>
+      <button type="button" :disabled="!store.canUndo || store.isAnimating" @click="handleUndo">
+        Undo
+      </button>
       <button type="button" :disabled="store.isWon" @click="togglePause">
         {{ store.state.status === 'paused' ? '再開' : '一時停止' }}
       </button>
-      <button type="button" :disabled="!store.canAutoComplete" @click="store.autoComplete()">
+      <button
+        type="button"
+        :disabled="!store.canAutoComplete || store.isAnimating"
+        @click="handleAutoComplete"
+      >
         自動で仕上げる
       </button>
     </div>

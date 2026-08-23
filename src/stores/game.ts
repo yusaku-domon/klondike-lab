@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, onScopeDispose, shallowRef } from 'vue'
+import { CARD_MOVE_ANIMATION_MS } from '../animationTiming'
 import { autoCompleteAll, canAutoComplete as canAutoCompleteState } from '../domain/autoComplete'
 import { createInitialGameState, type GameState } from '../domain/deal'
 import { applyMove, clickStock as clickStockMove, type MoveCommand } from '../domain/moves'
@@ -21,6 +22,32 @@ export const useGameStore = defineStore('game', () => {
   const isWon = computed(() => state.value.status === 'won')
   const isPlayable = computed(() => state.value.status === 'playing')
   const canAutoComplete = computed(() => canAutoCompleteState(state.value))
+
+  // UI-facing signal only: the click layer (GameBoard/GameToolbar) uses
+  // this to ignore new input while a move's animation is still playing, so
+  // a rapid second click can't start a new transition before the first
+  // settles. The store's own actions never gate on this — they remain
+  // callable at any time (e.g. from tests) exactly as before.
+  const isAnimatingRef = shallowRef(false)
+  const isAnimating = computed(() => isAnimatingRef.value)
+  let animationTimer: ReturnType<typeof setTimeout> | null = null
+
+  function clearAnimationLock() {
+    if (animationTimer !== null) {
+      clearTimeout(animationTimer)
+      animationTimer = null
+    }
+    isAnimatingRef.value = false
+  }
+
+  function triggerMoveAnimation() {
+    isAnimatingRef.value = true
+    if (animationTimer !== null) clearTimeout(animationTimer)
+    animationTimer = setTimeout(() => {
+      animationTimer = null
+      isAnimatingRef.value = false
+    }, CARD_MOVE_ANIMATION_MS)
+  }
 
   function persist() {
     saveGame(state.value)
@@ -68,6 +95,7 @@ export const useGameStore = defineStore('game', () => {
     state.value = next
     persist()
     syncTimer()
+    triggerMoveAnimation()
     return true
   }
 
@@ -76,6 +104,9 @@ export const useGameStore = defineStore('game', () => {
     history.value = []
     persist()
     syncTimer()
+    // A fresh deal replaces every card position outright; any lock from a
+    // move in the previous game is meaningless now.
+    clearAnimationLock()
   }
 
   function clickStock() {
@@ -99,6 +130,7 @@ export const useGameStore = defineStore('game', () => {
     state.value = restored
     persist()
     syncTimer()
+    triggerMoveAnimation()
   }
 
   function pause() {
@@ -118,6 +150,7 @@ export const useGameStore = defineStore('game', () => {
   syncTimer()
   onScopeDispose(() => {
     if (timerHandle !== null) clearInterval(timerHandle)
+    if (animationTimer !== null) clearTimeout(animationTimer)
   })
 
   if (typeof document !== 'undefined') {
@@ -136,6 +169,7 @@ export const useGameStore = defineStore('game', () => {
     isWon,
     isPlayable,
     canAutoComplete,
+    isAnimating,
     newGame,
     clickStock,
     move,
