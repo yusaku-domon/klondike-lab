@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import type { Suit } from '../domain/cards'
+import { isFullyRevealed } from '../domain/autoComplete'
 import type { PileRef } from '../domain/moves'
 import { resolveClick, type ClickTarget } from '../domain/selection'
 import { useGameStore } from '../stores/game'
@@ -13,6 +14,25 @@ const SUITS: Suit[] = ['clubs', 'diamonds', 'hearts', 'spades']
 
 const store = useGameStore()
 const selection = ref<PileRef | null>(null)
+const showAutoCompletePrompt = ref(false)
+
+// Prompt once, right when the board newly becomes fully revealed — not on
+// every re-render, and not again just because the player paused/resumed.
+watch(
+  () => isFullyRevealed(store.state),
+  (revealed, wasRevealed) => {
+    showAutoCompletePrompt.value = revealed && !wasRevealed
+  },
+)
+
+function confirmAutoComplete() {
+  store.autoComplete()
+  showAutoCompletePrompt.value = false
+}
+
+function dismissAutoCompletePrompt() {
+  showAutoCompletePrompt.value = false
+}
 
 function handleClick(target: ClickTarget) {
   if (!store.isPlayable) return
@@ -80,6 +100,19 @@ function tableauSelectedFromIndex(columnIndex: number): number | null {
     <div v-else class="pause-overlay" role="status">
       <p class="pause-title">一時停止中</p>
       <button type="button" @click="store.resume()">再開</button>
+    </div>
+
+    <div
+      v-if="showAutoCompletePrompt && store.isPlayable"
+      class="auto-complete-prompt"
+      role="alertdialog"
+      aria-label="自動で仕上げますか？"
+    >
+      <p class="prompt-title">自動で仕上げますか？</p>
+      <div class="prompt-actions">
+        <button type="button" @click="confirmAutoComplete">YES</button>
+        <button type="button" @click="dismissAutoCompletePrompt">NO</button>
+      </div>
     </div>
 
     <div v-if="store.isWon" class="win-banner" role="status">
@@ -152,5 +185,36 @@ function tableauSelectedFromIndex(columnIndex: number): number | null {
   font-size: 1.5rem;
   font-weight: bold;
   margin: 0;
+}
+
+.auto-complete-prompt {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  text-align: center;
+  padding: 1rem;
+}
+
+.prompt-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin: 0;
+}
+
+.prompt-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.prompt-actions button {
+  min-width: 5rem;
+  padding: 0.5rem 1.5rem;
+  font-size: 1rem;
 }
 </style>

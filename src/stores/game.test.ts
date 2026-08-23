@@ -325,4 +325,57 @@ describe('useGameStore', () => {
       expect(readPersistedState()?.elapsedSeconds).toBe(10)
     })
   })
+
+  describe('autoComplete', () => {
+    const descendingRanks = [...RANKS].reverse()
+
+    it('is unavailable while the stock has cards or any tableau card is face down', () => {
+      const store = useGameStore()
+      store.state = emptyState({ stock: [createCard('clubs', 1, false)] })
+      expect(store.canAutoComplete).toBe(false)
+
+      store.state = emptyState({
+        tableau: [[createCard('clubs', 5, false)], [], [], [], [], [], []],
+      })
+      expect(store.canAutoComplete).toBe(false)
+    })
+
+    it('cascades every card to its foundation as a single undo step', () => {
+      const store = useGameStore()
+      store.state = emptyState({
+        tableau: [
+          descendingRanks.map((rank) => createCard('clubs', rank, true)),
+          descendingRanks.map((rank) => createCard('diamonds', rank, true)),
+          descendingRanks.map((rank) => createCard('hearts', rank, true)),
+          descendingRanks.map((rank) => createCard('spades', rank, true)),
+          [],
+          [],
+          [],
+        ],
+      })
+      const original = store.state
+      expect(store.canAutoComplete).toBe(true)
+
+      store.autoComplete()
+
+      expect(store.isWon).toBe(true)
+      expect(store.state.foundations.hearts).toHaveLength(13)
+
+      store.undo()
+
+      expect(store.state).toEqual(original)
+      expect(store.canUndo).toBe(false)
+    })
+
+    it('is a no-op when unavailable', () => {
+      const store = useGameStore()
+      store.state = emptyState({ stock: [createCard('clubs', 1, false)] })
+      const before = store.state
+
+      store.autoComplete()
+
+      expect(store.state).toBe(before)
+      expect(store.canUndo).toBe(false)
+    })
+  })
 })

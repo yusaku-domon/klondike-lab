@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, onScopeDispose, shallowRef } from 'vue'
+import { autoCompleteAll, canAutoComplete as canAutoCompleteState } from '../domain/autoComplete'
 import { createInitialGameState, type GameState } from '../domain/deal'
 import { applyMove, clickStock as clickStockMove, type MoveCommand } from '../domain/moves'
 import type { ShuffleSeed } from '../domain/shuffle'
@@ -19,6 +20,7 @@ export const useGameStore = defineStore('game', () => {
   const canUndo = computed(() => history.value.length > 0 && state.value.status === 'playing')
   const isWon = computed(() => state.value.status === 'won')
   const isPlayable = computed(() => state.value.status === 'playing')
+  const canAutoComplete = computed(() => canAutoCompleteState(state.value))
 
   function persist() {
     saveGame(state.value)
@@ -81,6 +83,11 @@ export const useGameStore = defineStore('game', () => {
     return applyIfChanged(applyMove(state.value, command))
   }
 
+  function autoComplete() {
+    if (!canAutoComplete.value) return
+    applyIfChanged(autoCompleteAll(state.value))
+  }
+
   function undo() {
     if (history.value.length === 0) return
     const remaining = [...history.value]
@@ -120,5 +127,18 @@ export const useGameStore = defineStore('game', () => {
     window.addEventListener('beforeunload', persist)
   }
 
-  return { state, canUndo, isWon, isPlayable, newGame, clickStock, move, undo, pause, resume }
+  return {
+    state,
+    canUndo,
+    isWon,
+    isPlayable,
+    canAutoComplete,
+    newGame,
+    clickStock,
+    move,
+    undo,
+    pause,
+    resume,
+    autoComplete,
+  }
 })

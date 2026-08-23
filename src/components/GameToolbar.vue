@@ -40,6 +40,9 @@ const formattedElapsed = computed(() => {
       <button type="button" :disabled="store.isWon" @click="togglePause">
         {{ store.state.status === 'paused' ? '再開' : '一時停止' }}
       </button>
+      <button type="button" :disabled="!store.canAutoComplete" @click="store.autoComplete()">
+        自動で仕上げる
+      </button>
     </div>
 
     <form class="seed-form" @submit.prevent="startWithSeed">

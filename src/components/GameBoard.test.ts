@@ -129,4 +129,73 @@ describe('GameBoard', () => {
     expect(store.state.status).toBe('playing')
     expect(wrapper.find('[data-testid="stock-pile"]').exists()).toBe(true)
   })
+
+  describe('auto-complete prompt', () => {
+    const descendingRanks = [...RANKS].reverse()
+
+    function almostFullyRevealedState(): GameState {
+      return emptyState({
+        tableau: [
+          descendingRanks.map((rank) => createCard('clubs', rank, true)),
+          descendingRanks.map((rank) => createCard('diamonds', rank, true)),
+          descendingRanks.map((rank) => createCard('hearts', rank, true)),
+          descendingRanks.map((rank) => createCard('spades', rank, true)),
+          [],
+          [],
+          [],
+        ],
+      })
+    }
+
+    it('appears the moment the board becomes fully revealed', async () => {
+      const { wrapper, store } = mountBoard()
+      store.state = emptyState({ stock: [createCard('clubs', 1, false)] })
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('.auto-complete-prompt').exists()).toBe(false)
+
+      store.state = almostFullyRevealedState()
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.find('.auto-complete-prompt').exists()).toBe(true)
+    })
+
+    it('YES runs the cascade and hides the prompt', async () => {
+      const { wrapper, store } = mountBoard()
+      store.state = almostFullyRevealedState()
+      await wrapper.vm.$nextTick()
+
+      await wrapper.get('.auto-complete-prompt button:first-child').trigger('click')
+      await wrapper.vm.$nextTick()
+
+      expect(store.isWon).toBe(true)
+      expect(wrapper.find('.auto-complete-prompt').exists()).toBe(false)
+    })
+
+    it('NO only hides the prompt; the manual button stays available', async () => {
+      const { wrapper, store } = mountBoard()
+      store.state = almostFullyRevealedState()
+      await wrapper.vm.$nextTick()
+
+      await wrapper.get('.auto-complete-prompt button:last-child').trigger('click')
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.find('.auto-complete-prompt').exists()).toBe(false)
+      expect(store.state.foundations.clubs).toEqual([])
+      expect(store.canAutoComplete).toBe(true)
+    })
+
+    it('does not reappear after being dismissed just from pausing and resuming', async () => {
+      const { wrapper, store } = mountBoard()
+      store.state = almostFullyRevealedState()
+      await wrapper.vm.$nextTick()
+      await wrapper.get('.auto-complete-prompt button:last-child').trigger('click')
+
+      store.pause()
+      await wrapper.vm.$nextTick()
+      store.resume()
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.find('.auto-complete-prompt').exists()).toBe(false)
+    })
+  })
 })
