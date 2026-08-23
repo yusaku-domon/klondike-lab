@@ -16,13 +16,13 @@ function isSelected(index: number): boolean {
 </script>
 
 <template>
-  <div class="tableau-column" :aria-label="`場札${columnIndex + 1}列目`">
+  <div class="tableau-column" role="group" :aria-label="`場札${columnIndex + 1}列目`">
     <button
       v-if="column.length === 0"
       type="button"
       class="empty-column"
       :data-testid="`tableau-empty-${columnIndex}`"
-      aria-label="空の場札列"
+      :aria-label="`空の場札列(${columnIndex + 1}列目)`"
       @click="emit('select', null)"
     />
     <div

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { createCard, RANKS, type Card } from './cards'
-import type { GameState } from './deal'
-import { applyMove, clickStock, drawFromStock, recycleWaste, type MoveCommand } from './moves'
+import { createInitialGameState, type GameState } from './deal'
+import { isCompleteUniqueDeck } from './invariants'
+import { applyMove, clickStock, drawFromStock, recycleWaste, type MoveCommand, type PileRef } from './moves'
 
 function emptyState(overrides: Partial<GameState> = {}): GameState {
   return {
@@ -330,5 +331,56 @@ describe('applyMove', () => {
 
     expect(result.foundations.hearts).toHaveLength(13)
     expect(result.status).toBe('won')
+  })
+})
+
+describe('52-card invariant across a played-out sequence', () => {
+  function allCards(state: GameState): Card[] {
+    return [
+      ...state.stock,
+      ...state.waste,
+      ...state.tableau.flat(),
+      ...Object.values(state.foundations).flat(),
+    ]
+  }
+
+  const DESTINATIONS: MoveCommand['to'][] = [
+    { type: 'foundation', suit: 'clubs' },
+    { type: 'foundation', suit: 'diamonds' },
+    { type: 'foundation', suit: 'hearts' },
+    { type: 'foundation', suit: 'spades' },
+    ...Array.from({ length: 7 }, (_, column) => ({ type: 'tableau' as const, column })),
+  ]
+
+  const SOURCES: PileRef[] = [
+    { type: 'stock' },
+    { type: 'waste' },
+    { type: 'foundation', suit: 'clubs' },
+    { type: 'foundation', suit: 'diamonds' },
+    { type: 'foundation', suit: 'hearts' },
+    { type: 'foundation', suit: 'spades' },
+    ...Array.from({ length: 7 }, (_, column) => ({ type: 'tableau' as const, column })),
+  ]
+
+  it('never gains, loses, or duplicates a card across many legal and illegal operations', () => {
+    for (const seed of [1, 42, 2026, 0xdeadbeef]) {
+      let state = createInitialGameState(seed)
+      expect(isCompleteUniqueDeck(allCards(state))).toBe(true)
+
+      for (let step = 0; step < 300; step++) {
+        if (step % 3 === 0) {
+          state = clickStock(state)
+        } else {
+          const source = SOURCES[step % SOURCES.length]!
+          const to = DESTINATIONS[(step * 7 + 3) % DESTINATIONS.length]!
+          const from: PileRef =
+            source.type === 'tableau' ? { ...source, cardIndex: step % 8 } : source
+          state = applyMove(state, { from, to })
+        }
+
+        expect(state.tableau).toHaveLength(7)
+        expect(isCompleteUniqueDeck(allCards(state))).toBe(true)
+      }
+    }
   })
 })
