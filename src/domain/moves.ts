@@ -1,6 +1,7 @@
 import type { Card, Suit } from './cards'
 import type { GameState } from './deal'
 import { canPlaceOnFoundation, canPlaceOnTableau, isValidTableauRun } from './rules'
+import { applyScoreDelta, hasWon, scoreForMove, RECYCLE_WASTE_PENALTY, TABLEAU_FLIP_BONUS } from './scoring'
 
 export type PileRef =
   | { type: 'stock' }
@@ -41,8 +42,9 @@ export function recycleWaste(state: GameState): GameState {
   if (state.stock.length > 0 || state.waste.length === 0) return state
 
   const stock = [...state.waste].reverse().map((card) => ({ ...card, faceUp: false }))
+  const score = applyScoreDelta(state.score, RECYCLE_WASTE_PENALTY)
 
-  return { ...state, stock, waste: [], moveCount: state.moveCount + 1 }
+  return { ...state, stock, waste: [], moveCount: state.moveCount + 1, score }
 }
 
 export function clickStock(state: GameState): GameState {
@@ -52,7 +54,7 @@ export function clickStock(state: GameState): GameState {
 function extractMovingCards(
   state: GameState,
   from: PileRef,
-): { movingCards: Card[]; stateAfterRemoval: GameState } | null {
+): { movingCards: Card[]; flipped: boolean; stateAfterRemoval: GameState } | null {
   switch (from.type) {
     case 'stock':
       return null
@@ -62,6 +64,7 @@ function extractMovingCards(
       const card = state.waste[state.waste.length - 1]!
       return {
         movingCards: [card],
+        flipped: false,
         stateAfterRemoval: { ...state, waste: state.waste.slice(0, -1) },
       }
     }
@@ -72,6 +75,7 @@ function extractMovingCards(
       const card = pile[pile.length - 1]!
       return {
         movingCards: [card],
+        flipped: false,
         stateAfterRemoval: {
           ...state,
           foundations: { ...state.foundations, [from.suit]: pile.slice(0, -1) },
@@ -90,10 +94,14 @@ function extractMovingCards(
       const movingCards = column.slice(cardIndex)
       if (!isValidTableauRun(movingCards)) return null
 
-      const tableau = [...state.tableau] as GameState['tableau']
-      tableau[from.column] = flipExposedTopCard(column.slice(0, cardIndex))
+      const remainder = column.slice(0, cardIndex)
+      const remainderTop = remainder[remainder.length - 1]
+      const flipped = remainderTop !== undefined && !remainderTop.faceUp
 
-      return { movingCards, stateAfterRemoval: { ...state, tableau } }
+      const tableau = [...state.tableau] as GameState['tableau']
+      tableau[from.column] = flipExposedTopCard(remainder)
+
+      return { movingCards, flipped, stateAfterRemoval: { ...state, tableau } }
     }
   }
 }
@@ -136,5 +144,9 @@ export function applyMove(state: GameState, command: MoveCommand): GameState {
   const placed = placeMovingCards(extraction.stateAfterRemoval, to, extraction.movingCards)
   if (!placed) return state
 
-  return { ...placed, moveCount: state.moveCount + 1 }
+  const delta = scoreForMove(from.type, to.type) + (extraction.flipped ? TABLEAU_FLIP_BONUS : 0)
+  const score = applyScoreDelta(placed.score, delta)
+  const status = hasWon(placed.foundations) ? 'won' : placed.status
+
+  return { ...placed, score, status, moveCount: state.moveCount + 1 }
 }

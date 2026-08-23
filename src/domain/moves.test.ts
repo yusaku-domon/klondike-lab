@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createCard, type Card } from './cards'
+import { createCard, RANKS, type Card } from './cards'
 import type { GameState } from './deal'
 import { applyMove, clickStock, drawFromStock, recycleWaste, type MoveCommand } from './moves'
 
@@ -60,6 +60,14 @@ describe('recycleWaste', () => {
     expect(result.waste).toEqual([])
     expect(result.stock).toEqual([createCard('clubs', 2, false), createCard('clubs', 1, false)])
     expect(result.moveCount).toBe(1)
+  })
+
+  it('deducts 100 points, floored at 0', () => {
+    const state = emptyState({ waste: [createCard('clubs', 1, true)], score: 50 })
+    expect(recycleWaste(state).score).toBe(0)
+
+    const richState = emptyState({ waste: [createCard('clubs', 1, true)], score: 150 })
+    expect(recycleWaste(richState).score).toBe(50)
   })
 
   it('reproduces the original draw order after a recycle', () => {
@@ -251,5 +259,76 @@ describe('applyMove', () => {
     const command: MoveCommand = { from: { type: 'stock' }, to: { type: 'tableau', column: 0 } }
 
     expect(applyMove(state, command)).toBe(state)
+  })
+
+  it('awards +5 for waste to tableau', () => {
+    const state = emptyState({ waste: [createCard('spades', 13, true)] })
+    const command: MoveCommand = { from: { type: 'waste' }, to: { type: 'tableau', column: 0 } }
+    expect(applyMove(state, command).score).toBe(5)
+  })
+
+  it('awards +10 for waste to foundation', () => {
+    const state = emptyState({ waste: [createCard('hearts', 1, true)] })
+    const command: MoveCommand = { from: { type: 'waste' }, to: { type: 'foundation', suit: 'hearts' } }
+    expect(applyMove(state, command).score).toBe(10)
+  })
+
+  it('awards +10 for tableau to foundation, plus +5 for the card newly exposed underneath', () => {
+    const hiddenBase = createCard('clubs', 2, false)
+    const state = emptyState({ tableau: [[hiddenBase, createCard('hearts', 1, true)], [], [], [], [], [], []] })
+    const command: MoveCommand = {
+      from: { type: 'tableau', column: 0, cardIndex: 1 },
+      to: { type: 'foundation', suit: 'hearts' },
+    }
+
+    const result = applyMove(state, command)
+
+    expect(result.score).toBe(15)
+    expect(result.tableau[0]).toEqual([{ ...hiddenBase, faceUp: true }])
+  })
+
+  it('penalizes -15 for foundation to tableau, floored at 0', () => {
+    const state = emptyState({
+      score: 10,
+      foundations: { clubs: [], diamonds: [], hearts: [createCard('hearts', 5, true)], spades: [] },
+      tableau: [[createCard('clubs', 6, true)], [], [], [], [], [], []],
+    })
+    const command: MoveCommand = { from: { type: 'foundation', suit: 'hearts' }, to: { type: 'tableau', column: 0 } }
+
+    expect(applyMove(state, command).score).toBe(0)
+  })
+
+  it('awards 0 for tableau to tableau', () => {
+    const state = emptyState({
+      score: 20,
+      tableau: [[createCard('clubs', 8, true)], [createCard('hearts', 9, true)], [], [], [], [], []],
+    })
+    const command: MoveCommand = {
+      from: { type: 'tableau', column: 0, cardIndex: 0 },
+      to: { type: 'tableau', column: 1 },
+    }
+
+    expect(applyMove(state, command).score).toBe(20)
+  })
+
+  it('sets status to won once all four foundations are complete', () => {
+    const state = emptyState({
+      foundations: {
+        clubs: RANKS.slice(0, 13).map((rank) => createCard('clubs', rank, true)),
+        diamonds: RANKS.slice(0, 13).map((rank) => createCard('diamonds', rank, true)),
+        spades: RANKS.slice(0, 13).map((rank) => createCard('spades', rank, true)),
+        hearts: RANKS.slice(0, 12).map((rank) => createCard('hearts', rank, true)),
+      },
+      tableau: [[createCard('hearts', 13, true)], [], [], [], [], [], []],
+    })
+    const command: MoveCommand = {
+      from: { type: 'tableau', column: 0, cardIndex: 0 },
+      to: { type: 'foundation', suit: 'hearts' },
+    }
+
+    const result = applyMove(state, command)
+
+    expect(result.foundations.hearts).toHaveLength(13)
+    expect(result.status).toBe('won')
   })
 })
