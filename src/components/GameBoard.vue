@@ -273,6 +273,7 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
 .win-banner {
   position: absolute;
   inset: 0;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -309,6 +310,7 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
 .auto-complete-prompt {
   position: absolute;
   inset: 0;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;

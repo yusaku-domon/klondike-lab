@@ -40,6 +40,15 @@ const allCards = computed<Card[]>(() => [
   position: absolute;
   inset: 0;
   pointer-events: none;
+  /*
+   * Establishes a stacking context so the per-card z-index values below
+   * (0..N, based on position within a pile) are contained here and never
+   * escape to compete with siblings like .win-banner/.auto-complete-prompt
+   * in the parent .game-board — without this, any card past the very
+   * bottom of a pile (z-index > 0) would paint above an overlay that only
+   * has the default z-index: auto.
+   */
+  z-index: 1;
 }
 
 .card-wrapper {
