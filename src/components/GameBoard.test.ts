@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createCard, RANKS } from '../domain/cards'
 import type { GameState } from '../domain/deal'
 import { useGameStore } from '../stores/game'
@@ -36,6 +36,12 @@ function mountBoard() {
 
 beforeEach(() => {
   localStorage.clear()
+  vi.useFakeTimers()
+})
+
+afterEach(() => {
+  vi.clearAllTimers()
+  vi.useRealTimers()
 })
 
 describe('GameBoard', () => {
@@ -102,5 +108,25 @@ describe('GameBoard', () => {
     await wrapper.get('[data-testid="stock-pile"]').trigger('click')
 
     expect(store.state.moveCount).toBe(moveCountAfterWin)
+  })
+
+  it('hides the board and blocks card operations while paused', async () => {
+    const { wrapper, store } = mountBoard()
+    store.state = emptyState({ stock: [createCard('spades', 13, false)] })
+    await wrapper.vm.$nextTick()
+
+    store.pause()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="stock-pile"]').exists()).toBe(false)
+    expect(wrapper.find('.pause-overlay').exists()).toBe(true)
+
+    // Even a direct store call is blocked by the board's own guard for regular clicks;
+    // simulate the only click surface available while paused: the resume button.
+    await wrapper.get('.pause-overlay button').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(store.state.status).toBe('playing')
+    expect(wrapper.find('[data-testid="stock-pile"]').exists()).toBe(true)
   })
 })

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it } from 'vitest'
-import { createCard } from '../domain/cards'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createCard, RANKS } from '../domain/cards'
 import { createInitialGameState, type GameState } from '../domain/deal'
 import { isCompleteUniqueDeck } from '../domain/invariants'
 import type { MoveCommand } from '../domain/moves'
@@ -46,6 +46,12 @@ function readPersistedState(): GameState | null {
 beforeEach(() => {
   localStorage.clear()
   setActivePinia(createPinia())
+  vi.useFakeTimers()
+})
+
+afterEach(() => {
+  vi.clearAllTimers()
+  vi.useRealTimers()
 })
 
 describe('useGameStore', () => {
@@ -230,5 +236,93 @@ describe('useGameStore', () => {
     store.move({ from: { type: 'waste' }, to: { type: 'tableau', column: 0 } })
 
     expect(loadGame()).toEqual(savedAfterNewGame)
+  })
+
+  describe('timer and pause', () => {
+    it('increments elapsedSeconds once per second while playing', () => {
+      const store = useGameStore()
+      store.state = emptyState()
+
+      vi.advanceTimersByTime(3000)
+
+      expect(store.state.elapsedSeconds).toBe(3)
+    })
+
+    it('pause stops the timer, sets status, and does not touch undo history', () => {
+      const store = useGameStore()
+      store.state = emptyState({ waste: [createCard('spades', 13, true)] })
+      store.move({ from: { type: 'waste' }, to: { type: 'tableau', column: 0 } })
+      expect(store.canUndo).toBe(true)
+
+      store.pause()
+      const elapsedAtPause = store.state.elapsedSeconds
+
+      expect(store.state.status).toBe('paused')
+      expect(store.canUndo).toBe(false)
+
+      vi.advanceTimersByTime(5000)
+
+      expect(store.state.elapsedSeconds).toBe(elapsedAtPause)
+    })
+
+    it('resume restarts the timer and restores playing status', () => {
+      const store = useGameStore()
+      store.state = emptyState()
+      store.pause()
+
+      store.resume()
+      expect(store.state.status).toBe('playing')
+
+      vi.advanceTimersByTime(2000)
+      expect(store.state.elapsedSeconds).toBe(2)
+    })
+
+    it('pause is a no-op when not playing, resume is a no-op when not paused', () => {
+      const store = useGameStore()
+      store.state = emptyState()
+
+      store.resume()
+      expect(store.state.status).toBe('playing')
+
+      store.pause()
+      const paused = store.state
+      store.pause()
+      expect(store.state).toBe(paused)
+    })
+
+    it('stops the timer once the game is won', () => {
+      const store = useGameStore()
+
+      // Win by completing the last foundation (hearts) via a real move.
+      store.state = emptyState({
+        foundations: {
+          clubs: RANKS.map((rank) => createCard('clubs', rank, true)),
+          diamonds: RANKS.map((rank) => createCard('diamonds', rank, true)),
+          spades: RANKS.map((rank) => createCard('spades', rank, true)),
+          hearts: RANKS.slice(0, 12).map((rank) => createCard('hearts', rank, true)),
+        },
+        tableau: [[createCard('hearts', 13, true)], [], [], [], [], [], []],
+      })
+
+      store.move({ from: { type: 'tableau', column: 0, cardIndex: 0 }, to: { type: 'foundation', suit: 'hearts' } })
+
+      expect(store.isWon).toBe(true)
+      const elapsedAtWin = store.state.elapsedSeconds
+
+      vi.advanceTimersByTime(5000)
+
+      expect(store.state.elapsedSeconds).toBe(elapsedAtWin)
+    })
+
+    it('persists periodically rather than on every tick', () => {
+      const store = useGameStore()
+      store.state = emptyState()
+
+      vi.advanceTimersByTime(9000)
+      expect(readPersistedState()?.elapsedSeconds ?? 0).toBe(0)
+
+      vi.advanceTimersByTime(1000)
+      expect(readPersistedState()?.elapsedSeconds).toBe(10)
+    })
   })
 })

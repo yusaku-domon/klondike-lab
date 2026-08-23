@@ -42,37 +42,44 @@ function tableauSelectedFromIndex(columnIndex: number): number | null {
 
 <template>
   <div class="game-board">
-    <div class="top-row">
-      <StockPile
-        :stock-count="store.state.stock.length"
-        :waste-count="store.state.waste.length"
-        @click="handleClick({ type: 'stock' })"
-      />
-      <WastePile
-        :waste="store.state.waste"
-        :selected="isSelected({ type: 'waste' })"
-        @click="handleClick({ type: 'waste' })"
-      />
-      <div class="spacer" />
-      <FoundationPile
-        v-for="suit in SUITS"
-        :key="suit"
-        :suit="suit"
-        :pile="store.state.foundations[suit]"
-        :selected="isSelected({ type: 'foundation', suit })"
-        @click="handleClick({ type: 'foundation', suit })"
-      />
-    </div>
+    <template v-if="store.state.status !== 'paused'">
+      <div class="top-row">
+        <StockPile
+          :stock-count="store.state.stock.length"
+          :waste-count="store.state.waste.length"
+          @click="handleClick({ type: 'stock' })"
+        />
+        <WastePile
+          :waste="store.state.waste"
+          :selected="isSelected({ type: 'waste' })"
+          @click="handleClick({ type: 'waste' })"
+        />
+        <div class="spacer" />
+        <FoundationPile
+          v-for="suit in SUITS"
+          :key="suit"
+          :suit="suit"
+          :pile="store.state.foundations[suit]"
+          :selected="isSelected({ type: 'foundation', suit })"
+          @click="handleClick({ type: 'foundation', suit })"
+        />
+      </div>
 
-    <div class="tableau-row">
-      <TableauColumn
-        v-for="(column, columnIndex) in store.state.tableau"
-        :key="columnIndex"
-        :column="column"
-        :column-index="columnIndex"
-        :selected-from-index="tableauSelectedFromIndex(columnIndex)"
-        @select="(cardIndex) => handleClick({ type: 'tableau', column: columnIndex, cardIndex })"
-      />
+      <div class="tableau-row">
+        <TableauColumn
+          v-for="(column, columnIndex) in store.state.tableau"
+          :key="columnIndex"
+          :column="column"
+          :column-index="columnIndex"
+          :selected-from-index="tableauSelectedFromIndex(columnIndex)"
+          @select="(cardIndex) => handleClick({ type: 'tableau', column: columnIndex, cardIndex })"
+        />
+      </div>
+    </template>
+
+    <div v-else class="pause-overlay" role="status">
+      <p class="pause-title">一時停止中</p>
+      <button type="button" @click="store.resume()">再開</button>
     </div>
 
     <div v-if="store.isWon" class="win-banner" role="status">
@@ -127,6 +134,22 @@ function tableauSelectedFromIndex(columnIndex: number): number | null {
 
 .win-title {
   font-size: 2rem;
+  font-weight: bold;
+  margin: 0;
+}
+
+.pause-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  min-height: 20rem;
+  color: #fff;
+}
+
+.pause-title {
+  font-size: 1.5rem;
   font-weight: bold;
   margin: 0;
 }

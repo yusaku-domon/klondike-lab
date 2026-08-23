@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useGameStore } from '../stores/game'
 
 const store = useGameStore()
@@ -15,6 +15,21 @@ function startWithSeed() {
   if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff) return
   store.newGame(seed)
 }
+
+function togglePause() {
+  if (store.state.status === 'paused') {
+    store.resume()
+  } else {
+    store.pause()
+  }
+}
+
+const formattedElapsed = computed(() => {
+  const total = store.state.elapsedSeconds
+  const minutes = Math.floor(total / 60)
+  const seconds = total % 60
+  return `${minutes}:${String(seconds).padStart(2, '0')}`
+})
 </script>
 
 <template>
@@ -22,6 +37,9 @@ function startWithSeed() {
     <div class="actions">
       <button type="button" @click="startNewGame">新しいゲーム</button>
       <button type="button" :disabled="!store.canUndo" @click="store.undo()">Undo</button>
+      <button type="button" :disabled="store.isWon" @click="togglePause">
+        {{ store.state.status === 'paused' ? '再開' : '一時停止' }}
+      </button>
     </div>
 
     <form class="seed-form" @submit.prevent="startWithSeed">
@@ -39,7 +57,7 @@ function startWithSeed() {
       </div>
       <div>
         <dt>経過時間</dt>
-        <dd>{{ store.state.elapsedSeconds }}秒</dd>
+        <dd>{{ formattedElapsed }}</dd>
       </div>
       <div>
         <dt>手数</dt>
