@@ -48,7 +48,10 @@ export const useGameStore = defineStore('game', () => {
   }
 
   function syncTimer() {
-    const shouldRun = state.value.status === 'playing'
+    // Don't start counting while the player is just looking at a freshly
+    // dealt board — the clock begins the moment the first card actually
+    // moves (a draw or a move both increment moveCount).
+    const shouldRun = state.value.status === 'playing' && state.value.moveCount > 0
     if (shouldRun && timerHandle === null) {
       timerHandle = setInterval(tick, 1000)
     } else if (!shouldRun && timerHandle !== null) {

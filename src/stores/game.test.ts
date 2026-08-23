@@ -239,13 +239,29 @@ describe('useGameStore', () => {
   })
 
   describe('timer and pause', () => {
-    it('increments elapsedSeconds once per second while playing', () => {
+    it('increments elapsedSeconds once per second once a move has been made', () => {
       const store = useGameStore()
-      store.state = emptyState()
+      store.state = emptyState({ stock: [createCard('clubs', 1, false)] })
+      store.clickStock()
 
       vi.advanceTimersByTime(3000)
 
       expect(store.state.elapsedSeconds).toBe(3)
+    })
+
+    it('does not start ticking until the first card actually moves', () => {
+      const store = useGameStore()
+      store.state = emptyState({ stock: [createCard('clubs', 1, false)] })
+      expect(store.state.moveCount).toBe(0)
+
+      vi.advanceTimersByTime(5000)
+      expect(store.state.elapsedSeconds).toBe(0)
+
+      store.clickStock()
+      expect(store.state.moveCount).toBe(1)
+
+      vi.advanceTimersByTime(2000)
+      expect(store.state.elapsedSeconds).toBe(2)
     })
 
     it('pause stops the timer, sets status, and does not touch undo history', () => {
@@ -267,7 +283,7 @@ describe('useGameStore', () => {
 
     it('resume restarts the timer and restores playing status', () => {
       const store = useGameStore()
-      store.state = emptyState()
+      store.state = emptyState({ moveCount: 1 })
       store.pause()
 
       store.resume()
@@ -316,7 +332,8 @@ describe('useGameStore', () => {
 
     it('persists periodically rather than on every tick', () => {
       const store = useGameStore()
-      store.state = emptyState()
+      store.state = emptyState({ stock: [createCard('clubs', 1, false)] })
+      store.clickStock()
 
       vi.advanceTimersByTime(9000)
       expect(readPersistedState()?.elapsedSeconds ?? 0).toBe(0)
