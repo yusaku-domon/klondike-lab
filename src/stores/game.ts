@@ -17,6 +17,7 @@ export const useGameStore = defineStore('game', () => {
 
   const canUndo = computed(() => history.value.length > 0)
   const isWon = computed(() => state.value.status === 'won')
+  const isPlayable = computed(() => state.value.status === 'playing')
 
   function persist() {
     saveGame(state.value)
@@ -28,12 +29,13 @@ export const useGameStore = defineStore('game', () => {
       next.length > MAX_UNDO_HISTORY ? next.slice(next.length - MAX_UNDO_HISTORY) : next
   }
 
-  function applyIfChanged(next: GameState) {
+  function applyIfChanged(next: GameState): boolean {
     const previous = state.value
-    if (next === previous) return
+    if (next === previous) return false
     pushHistory(previous)
     state.value = next
     persist()
+    return true
   }
 
   function newGame(seed: ShuffleSeed = generateSeed()) {
@@ -46,8 +48,8 @@ export const useGameStore = defineStore('game', () => {
     applyIfChanged(clickStockMove(state.value))
   }
 
-  function move(command: MoveCommand) {
-    applyIfChanged(applyMove(state.value, command))
+  function move(command: MoveCommand): boolean {
+    return applyIfChanged(applyMove(state.value, command))
   }
 
   function undo() {
@@ -69,5 +71,5 @@ export const useGameStore = defineStore('game', () => {
     window.addEventListener('beforeunload', persist)
   }
 
-  return { state, canUndo, isWon, newGame, clickStock, move, undo }
+  return { state, canUndo, isWon, isPlayable, newGame, clickStock, move, undo }
 })

@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import GameView from './views/GameView.vue'
 </script>
 
 <template>
-  <h1>Klondike Lab</h1>
+  <GameView />
 </template>
