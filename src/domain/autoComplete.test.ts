@@ -100,4 +100,45 @@ describe('autoCompleteAll', () => {
     const state = emptyState()
     expect(autoCompleteAll(state)).toBe(state)
   })
+
+  it('cycles the stock to reach a card buried under the waste top', () => {
+    // Ace of hearts is not directly reachable — the King of spades on top
+    // of it is never foundation-eligible on its own. Since the stock is
+    // empty (a precondition of auto-complete being offered), the only way
+    // to reach it is to recycle the waste back into the stock and redraw.
+    const state = emptyState({
+      waste: [createCard('hearts', 1, true), createCard('spades', 13, true)],
+    })
+
+    const result = autoCompleteAll(state)
+
+    expect(result.foundations.hearts).toEqual([createCard('hearts', 1, true)])
+  })
+
+  it('unlocks a tableau card that was waiting on a card buried in the waste', () => {
+    const state = emptyState({
+      waste: [createCard('hearts', 1, true), createCard('spades', 13, true)],
+      tableau: [[createCard('hearts', 2, true)], [], [], [], [], [], []],
+    })
+
+    const result = autoCompleteAll(state)
+
+    expect(result.foundations.hearts).toEqual([
+      createCard('hearts', 1, true),
+      createCard('hearts', 2, true),
+    ])
+    expect(result.tableau[0]).toEqual([])
+  })
+
+  it('gives up after a full cycle finds no further progress, without looping forever', () => {
+    const state = emptyState({
+      waste: [createCard('spades', 13, true), createCard('hearts', 13, true)],
+    })
+
+    const result = autoCompleteAll(state)
+
+    expect(result.foundations.spades).toEqual([])
+    expect(result.foundations.hearts).toEqual([])
+    expect(result.stock.length + result.waste.length).toBe(2)
+  })
 })

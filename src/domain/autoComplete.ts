@@ -1,5 +1,5 @@
 import type { GameState } from './deal'
-import { applyMove, type MoveCommand } from './moves'
+import { applyMove, clickStock, type MoveCommand } from './moves'
 import { canPlaceOnFoundation } from './rules'
 
 /**
@@ -50,19 +50,39 @@ function findNextFoundationMove(state: GameState): MoveCommand | null {
 
 /**
  * Repeatedly sends any waste/tableau top card that is immediately eligible
- * for its foundation, until no such move remains. Since every card is
- * already visible, this never needs to guess or try alternatives — but it
- * also isn't guaranteed to fully clear the board: a poorly-ordered pile can
- * still leave cards stuck behind one another, in which case this simply
- * stops and returns however far it got.
+ * for its foundation. Since every card is already visible, this never needs
+ * to guess or try alternatives about tableau order — but the waste pile can
+ * still be hiding a needed card beneath its current top. Because the stock
+ * is empty by the time auto-complete is offered, cycling the stock (via
+ * clickStock, which recycles-then-redraws) is the only way to bring each
+ * waste card to the top in turn, so this interleaves that cycling with
+ * foundation checks until either progress dries up for a full lap through
+ * the pile (genuinely stuck — a poorly-ordered pile can still block itself)
+ * or nothing is left to draw.
  */
 export function autoCompleteAll(state: GameState): GameState {
   let current = state
+  let drawsSinceProgress = 0
+
   for (;;) {
     const command = findNextFoundationMove(current)
-    if (!command) return current
-    const next = applyMove(current, command)
-    if (next === current) return current
-    current = next
+    if (command) {
+      const next = applyMove(current, command)
+      if (next !== current) {
+        current = next
+        drawsSinceProgress = 0
+        continue
+      }
+    }
+
+    const cycleLength = current.stock.length + current.waste.length
+    if (cycleLength === 0 || drawsSinceProgress > cycleLength) {
+      return current
+    }
+
+    const drawn = clickStock(current)
+    if (drawn === current) return current
+    current = drawn
+    drawsSinceProgress += 1
   }
 }
