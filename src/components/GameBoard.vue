@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { Suit } from '../domain/cards'
 import { isFullyRevealed } from '../domain/autoComplete'
 import type { PileRef } from '../domain/moves'
 import { resolveClick, type ClickTarget } from '../domain/selection'
 import { useGameStore } from '../stores/game'
+import { computeCardPositions, TABLEAU_STACK_OFFSET_REM, type SlotLayout } from './boardLayout'
+import CardAnimationLayer from './CardAnimationLayer.vue'
 import FoundationPile from './FoundationPile.vue'
 import StockPile from './StockPile.vue'
 import TableauColumn from './TableauColumn.vue'
@@ -15,6 +17,75 @@ const SUITS: Suit[] = ['clubs', 'diamonds', 'hearts', 'spades']
 const store = useGameStore()
 const selection = ref<PileRef | null>(null)
 const showAutoCompletePrompt = ref(false)
+
+// Live-measured slot positions, not fixed rem math: the top-row uses a
+// flexible spacer to push foundations to the right edge, so their real
+// on-screen position depends on the viewport width and must come from the
+// actual DOM rather than an assumption about the CSS layout.
+const boardEl = ref<HTMLElement | null>(null)
+const stockSlotEl = ref<HTMLElement | null>(null)
+const wasteSlotEl = ref<HTMLElement | null>(null)
+const foundationSlotEls: Partial<Record<Suit, HTMLElement>> = {}
+const tableauSlotEls: (HTMLElement | undefined)[] = []
+
+function setFoundationSlotEl(suit: Suit, el: Element | null) {
+  if (el instanceof HTMLElement) foundationSlotEls[suit] = el
+}
+
+function setTableauSlotEl(index: number, el: Element | null) {
+  if (el instanceof HTMLElement) tableauSlotEls[index] = el
+}
+
+const slotLayout = ref<SlotLayout | null>(null)
+const stackOffsetPx = ref(0)
+
+function measureSlots() {
+  const boardRect = boardEl.value?.getBoundingClientRect()
+  if (!boardRect || !stockSlotEl.value || !wasteSlotEl.value) return
+  if (tableauSlotEls.length < 7 || tableauSlotEls.some((el) => !el)) return
+  if (SUITS.some((suit) => !foundationSlotEls[suit])) return
+
+  const relative = (el: HTMLElement): { x: number; y: number } => {
+    const rect = el.getBoundingClientRect()
+    return { x: rect.left - boardRect.left, y: rect.top - boardRect.top }
+  }
+
+  slotLayout.value = {
+    stock: relative(stockSlotEl.value),
+    waste: relative(wasteSlotEl.value),
+    foundations: {
+      clubs: relative(foundationSlotEls.clubs!),
+      diamonds: relative(foundationSlotEls.diamonds!),
+      hearts: relative(foundationSlotEls.hearts!),
+      spades: relative(foundationSlotEls.spades!),
+    },
+    tableau: tableauSlotEls.map((el) => relative(el!)),
+  }
+
+  const remPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+  stackOffsetPx.value = TABLEAU_STACK_OFFSET_REM * remPx
+}
+
+let resizeObserver: ResizeObserver | null = null
+
+onMounted(async () => {
+  await nextTick()
+  measureSlots()
+
+  if (typeof ResizeObserver !== 'undefined' && boardEl.value) {
+    resizeObserver = new ResizeObserver(() => measureSlots())
+    resizeObserver.observe(boardEl.value)
+  }
+})
+
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
+})
+
+const cardPositions = computed(() => {
+  if (!slotLayout.value) return new Map()
+  return computeCardPositions(store.state, slotLayout.value, stackOffsetPx.value)
+})
 
 // Prompt once, right when the board newly becomes fully revealed — not on
 // every re-render, and not again just because the player paused/resumed.
@@ -58,43 +129,87 @@ function tableauSelectedFromIndex(columnIndex: number): number | null {
   if (!s || s.type !== 'tableau' || s.column !== columnIndex) return null
   return s.cardIndex ?? null
 }
+
+const selectedCardIds = computed<ReadonlySet<string>>(() => {
+  const s = selection.value
+  if (!s) return new Set()
+
+  if (s.type === 'waste') {
+    const top = store.state.waste[store.state.waste.length - 1]
+    return top ? new Set([top.id]) : new Set()
+  }
+
+  if (s.type === 'foundation') {
+    const pile = store.state.foundations[s.suit]
+    const top = pile[pile.length - 1]
+    return top ? new Set([top.id]) : new Set()
+  }
+
+  if (s.type === 'tableau') {
+    const column = store.state.tableau[s.column] ?? []
+    return new Set(column.slice(s.cardIndex ?? 0).map((card) => card.id))
+  }
+
+  return new Set()
+})
 </script>
 
 <template>
-  <div class="game-board">
+  <div ref="boardEl" class="game-board">
     <template v-if="store.state.status !== 'paused'">
       <div class="top-row">
-        <StockPile
-          :stock-count="store.state.stock.length"
-          :waste-count="store.state.waste.length"
-          @click="handleClick({ type: 'stock' })"
-        />
-        <WastePile
-          :waste="store.state.waste"
-          :selected="isSelected({ type: 'waste' })"
-          @click="handleClick({ type: 'waste' })"
-        />
+        <div ref="stockSlotEl" class="pile-slot">
+          <StockPile
+            :stock-count="store.state.stock.length"
+            :waste-count="store.state.waste.length"
+            @click="handleClick({ type: 'stock' })"
+          />
+        </div>
+        <div ref="wasteSlotEl" class="pile-slot">
+          <WastePile
+            :waste="store.state.waste"
+            :selected="isSelected({ type: 'waste' })"
+            @click="handleClick({ type: 'waste' })"
+          />
+        </div>
         <div class="spacer" />
-        <FoundationPile
+        <div
           v-for="suit in SUITS"
           :key="suit"
-          :suit="suit"
-          :pile="store.state.foundations[suit]"
-          :selected="isSelected({ type: 'foundation', suit })"
-          @click="handleClick({ type: 'foundation', suit })"
-        />
+          class="pile-slot"
+          :ref="(el) => setFoundationSlotEl(suit, el as Element | null)"
+        >
+          <FoundationPile
+            :suit="suit"
+            :pile="store.state.foundations[suit]"
+            :selected="isSelected({ type: 'foundation', suit })"
+            @click="handleClick({ type: 'foundation', suit })"
+          />
+        </div>
       </div>
 
       <div class="tableau-row">
-        <TableauColumn
+        <div
           v-for="(column, columnIndex) in store.state.tableau"
           :key="columnIndex"
-          :column="column"
-          :column-index="columnIndex"
-          :selected-from-index="tableauSelectedFromIndex(columnIndex)"
-          @select="(cardIndex) => handleClick({ type: 'tableau', column: columnIndex, cardIndex })"
-        />
+          class="pile-slot"
+          :ref="(el) => setTableauSlotEl(columnIndex, el as Element | null)"
+        >
+          <TableauColumn
+            :column="column"
+            :column-index="columnIndex"
+            :selected-from-index="tableauSelectedFromIndex(columnIndex)"
+            @select="(cardIndex) => handleClick({ type: 'tableau', column: columnIndex, cardIndex })"
+          />
+        </div>
       </div>
+
+      <CardAnimationLayer
+        v-if="slotLayout"
+        :state="store.state"
+        :positions="cardPositions"
+        :selected-card-ids="selectedCardIds"
+      />
     </template>
 
     <div v-else class="pause-overlay" role="status">
@@ -144,6 +259,10 @@ function tableauSelectedFromIndex(columnIndex: number): number | null {
 
 .spacer {
   flex: 1;
+}
+
+.pile-slot {
+  display: flex;
 }
 
 .tableau-row {

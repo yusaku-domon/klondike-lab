@@ -14,7 +14,14 @@ const suitSymbol = computed(() => SUIT_SYMBOLS[props.suit])
 </script>
 
 <template>
-  <PlayingCard v-if="topCard" :card="topCard" :selected="selected" interactive @select="$emit('click')" />
+  <PlayingCard
+    v-if="topCard"
+    :card="topCard"
+    :selected="selected"
+    interactive
+    ghost
+    @select="$emit('click')"
+  />
   <button
     v-else
     type="button"

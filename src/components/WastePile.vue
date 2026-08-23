@@ -10,7 +10,14 @@ const topCard = computed<Card | null>(() => props.waste[props.waste.length - 1] 
 </script>
 
 <template>
-  <PlayingCard v-if="topCard" :card="topCard" :selected="selected" interactive @select="$emit('click')" />
+  <PlayingCard
+    v-if="topCard"
+    :card="topCard"
+    :selected="selected"
+    interactive
+    ghost
+    @select="$emit('click')"
+  />
   <button
     v-else
     type="button"

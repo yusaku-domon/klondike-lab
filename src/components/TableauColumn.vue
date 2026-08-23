@@ -35,6 +35,7 @@ function isSelected(index: number): boolean {
         :card="card"
         :selected="isSelected(index)"
         :interactive="card.faceUp"
+        ghost
         @select="emit('select', index)"
       />
     </div>

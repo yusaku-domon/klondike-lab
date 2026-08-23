@@ -7,8 +7,20 @@ const props = withDefaults(
     card: Card
     selected?: boolean
     interactive?: boolean
+    /**
+     * Renders fully transparent while keeping size, hit-testing, and ARIA
+     * semantics intact. Used for the real interactive card underneath the
+     * decorative CardAnimationLayer, which shows the actual moving visual.
+     */
+    ghost?: boolean
+    /**
+     * Purely visual copy (used by CardAnimationLayer): skips data-testid so
+     * it never collides with the real interactive element's, on top of
+     * living inside an aria-hidden layer.
+     */
+    decorative?: boolean
   }>(),
-  { selected: false, interactive: false },
+  { selected: false, interactive: false, ghost: false, decorative: false },
 )
 
 defineEmits<{ select: [] }>()
@@ -33,8 +45,8 @@ const ariaLabel = computed(() => {
     :is="interactive ? 'button' : 'div'"
     :type="interactive ? 'button' : undefined"
     class="playing-card"
-    :class="[card.faceUp ? colorClass : 'face-down', { selected, interactive }]"
-    :data-testid="`card-${card.id}`"
+    :class="[card.faceUp ? colorClass : 'face-down', { selected, interactive, ghost }]"
+    :data-testid="decorative ? undefined : `card-${card.id}`"
     :aria-pressed="interactive ? selected : undefined"
     :aria-label="ariaLabel"
     @click="interactive && $emit('select')"
@@ -84,6 +96,10 @@ const ariaLabel = computed(() => {
   outline: 3px solid #ffb300;
   outline-offset: 2px;
   transform: translateY(-6px);
+}
+
+.playing-card.ghost {
+  opacity: 0;
 }
 
 .corner {
