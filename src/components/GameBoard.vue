@@ -244,11 +244,11 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
 .game-board {
   position: relative;
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 2rem;
   padding: 1.5rem;
   background: #0f7a44;
-  min-height: 100%;
   box-sizing: border-box;
 }
 

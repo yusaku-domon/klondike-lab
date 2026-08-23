@@ -14,6 +14,7 @@ import GameToolbar from '../components/GameToolbar.vue'
 .game-view {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100%;
+  overflow: hidden;
 }
 </style>

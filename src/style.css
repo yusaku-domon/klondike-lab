@@ -1,0 +1,16 @@
+/*
+ * Without this, the browser's default 8px body margin pushes the app's
+ * height:100% chain past the viewport, which forces a scrollbar even
+ * though there's nothing meaningful to scroll to.
+ */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+#app {
+  height: 100%;
+}
