@@ -1,9 +1,11 @@
+// @vitest-environment jsdom
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createCard } from '../domain/cards'
-import type { GameState } from '../domain/deal'
+import { createInitialGameState, type GameState } from '../domain/deal'
 import { isCompleteUniqueDeck } from '../domain/invariants'
 import type { MoveCommand } from '../domain/moves'
+import { loadGame, STORAGE_KEY } from '../persistence/gameStorage'
 import { useGameStore } from './game'
 
 function emptyState(overrides: Partial<GameState> = {}): GameState {
@@ -34,7 +36,15 @@ function allCards(state: GameState) {
   ]
 }
 
+// Reads the raw persisted payload without loadGame()'s strict 52-card
+// validation, since several fixtures above intentionally use partial decks.
+function readPersistedState(): GameState | null {
+  const raw = localStorage.getItem(STORAGE_KEY)
+  return raw ? (JSON.parse(raw).state as GameState) : null
+}
+
 beforeEach(() => {
+  localStorage.clear()
   setActivePinia(createPinia())
 })
 
@@ -169,5 +179,56 @@ describe('useGameStore', () => {
     }
 
     expect(undoCount).toBe(100)
+  })
+
+  it('restores a previously saved game on creation instead of starting fresh', () => {
+    const saved = createInitialGameState(777)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ state: saved, savedAt: 0 }))
+
+    const store = useGameStore()
+
+    expect(store.state).toEqual(saved)
+  })
+
+  it('starts a fresh game when there is nothing valid to restore', () => {
+    const store = useGameStore()
+    expect(isCompleteUniqueDeck(allCards(store.state))).toBe(true)
+  })
+
+  it('persists to localStorage after a successful move', () => {
+    const store = useGameStore()
+    store.state = emptyState({ waste: [createCard('spades', 13, true)] })
+
+    store.move({ from: { type: 'waste' }, to: { type: 'tableau', column: 0 } })
+
+    expect(readPersistedState()).toEqual(store.state)
+  })
+
+  it('persists a fresh newGame, overwriting any previous save', () => {
+    const store = useGameStore()
+    store.newGame(555)
+
+    expect(loadGame()).toEqual(store.state)
+  })
+
+  it('persists the restored state after an undo', () => {
+    const store = useGameStore()
+    store.state = emptyState({ waste: [createCard('spades', 13, true)] })
+    const original = store.state
+
+    store.move({ from: { type: 'waste' }, to: { type: 'tableau', column: 0 } })
+    store.undo()
+
+    expect(readPersistedState()).toEqual(original)
+  })
+
+  it('does not persist a rejected, no-op action', () => {
+    const store = useGameStore()
+    store.newGame(1)
+    const savedAfterNewGame = loadGame()
+
+    store.move({ from: { type: 'waste' }, to: { type: 'tableau', column: 0 } })
+
+    expect(loadGame()).toEqual(savedAfterNewGame)
   })
 })
