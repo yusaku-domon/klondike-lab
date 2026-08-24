@@ -14,6 +14,10 @@ const props = defineProps<{
    * layer so they never dip behind another pile they slide past, while
    * keeping their relative order within the moving group intact. */
   animatingCardIds: ReadonlySet<string>
+  /** Move-navigation hint for a card that's a legal drop target — this is
+   * the actual visible card the player sees, unlike the invisible ghost
+   * copy underneath, so this is where the highlight has to be applied. */
+  destinationHighlights: ReadonlyMap<string, 'weak' | 'strong'>
 }>()
 
 // Comfortably above the largest possible in-pile z (a full 52-card
@@ -63,6 +67,7 @@ const cardsById = computed<Map<string, Card>>(() => {
         v-if="cardsById.get(id)"
         :card="cardsById.get(id)!"
         :selected="selectedCardIds.has(id)"
+        :class="destinationHighlights.get(id) ? `nav-${destinationHighlights.get(id)}` : undefined"
         decorative
       />
     </div>
@@ -94,5 +99,19 @@ const cardsById = computed<Map<string, Card>>(() => {
   transition-property: transform;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   will-change: transform;
+}
+
+/* Move-navigation hints on a receiving card that already holds a pile —
+   same frame/glow language as the empty-slot frames, and deliberately a
+   different technique (box-shadow, teal) from .selected's amber
+   outline+lift so the two are never visually confused. */
+.nav-weak {
+  box-shadow: 0 0 0 2px rgba(79, 209, 197, 0.45);
+}
+
+.nav-strong {
+  box-shadow:
+    0 0 0 3px rgba(79, 209, 197, 0.95),
+    0 0 14px 3px rgba(79, 209, 197, 0.65);
 }
 </style>

@@ -37,6 +37,7 @@ describe('CardAnimationLayer', () => {
         positions: new Map(),
         selectedCardIds: new Set<string>(),
         animatingCardIds: new Set<string>(),
+        destinationHighlights: new Map(),
       },
     })
 
@@ -52,6 +53,7 @@ describe('CardAnimationLayer', () => {
         positions: new Map(),
         selectedCardIds: new Set<string>(),
         animatingCardIds: new Set<string>(),
+        destinationHighlights: new Map(),
       },
     })
 
@@ -95,7 +97,13 @@ describe('CardAnimationLayer', () => {
     ])
 
     const notAnimating = mount(CardAnimationLayer, {
-      props: { state, positions, selectedCardIds: new Set<string>(), animatingCardIds: new Set<string>() },
+      props: {
+        state,
+        positions,
+        selectedCardIds: new Set<string>(),
+        animatingCardIds: new Set<string>(),
+        destinationHighlights: new Map(),
+      },
     })
     expect(zIndexOf(notAnimating, 'スペードのA')).toBe(0)
 
@@ -105,6 +113,7 @@ describe('CardAnimationLayer', () => {
         positions,
         selectedCardIds: new Set<string>(),
         animatingCardIds: new Set(['spades-1']),
+        destinationHighlights: new Map(),
       },
     })
     // spades-1 has the LOWEST in-pile z (0) of everyone on the board, yet
@@ -113,5 +122,39 @@ describe('CardAnimationLayer', () => {
     expect(zIndexOf(animating, 'スペードのA')).toBeGreaterThan(zIndexOf(animating, 'ハートの7'))
     // And it's back to its normal (lower) stacking once not animating.
     expect(zIndexOf(notAnimating, 'スペードのA')).toBeLessThan(zIndexOf(notAnimating, 'ハートの7'))
+  })
+
+  function classesOf(wrapper: ReturnType<typeof mount>, ariaLabel: string): string[] | undefined {
+    const wrappers = wrapper.findAll('.card-wrapper')
+    const el = wrappers.find((w) => w.find(`[aria-label*="${ariaLabel}"]`).exists())
+    return el?.find(`[aria-label*="${ariaLabel}"]`).classes()
+  }
+
+  it('applies a move-navigation class to exactly the card flagged in destinationHighlights', () => {
+    const state = emptyState({
+      tableau: [
+        [createCard('hearts', 9, true)],
+        [createCard('clubs', 6, true)],
+        [],
+        [],
+        [],
+        [],
+        [],
+      ],
+    })
+
+    const wrapper = mount(CardAnimationLayer, {
+      props: {
+        state,
+        positions: new Map(),
+        selectedCardIds: new Set<string>(),
+        animatingCardIds: new Set<string>(),
+        destinationHighlights: new Map<string, 'weak' | 'strong'>([['clubs-6', 'strong']]),
+      },
+    })
+
+    expect(classesOf(wrapper, 'クラブの6')).toContain('nav-strong')
+    expect(classesOf(wrapper, 'ハートの9')).not.toContain('nav-weak')
+    expect(classesOf(wrapper, 'ハートの9')).not.toContain('nav-strong')
   })
 })

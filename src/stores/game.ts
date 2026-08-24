@@ -18,6 +18,13 @@ export const useGameStore = defineStore('game', () => {
   const state = shallowRef<GameState>(loadGame() ?? createInitialGameState(generateSeed()))
   const history = shallowRef<GameState[]>([])
 
+  // Bumped only by newGame(), never by a move/undo. UI layers (GameBoard)
+  // watch this to clear any pile selection they're holding locally — a
+  // fresh deal reuses the same pile shapes (e.g. tableau column 6 always
+  // ends at cardIndex 6), so a leftover selection can otherwise keep
+  // resolving to a real-looking card in the new game instead of nothing.
+  const gameEpoch = shallowRef(0)
+
   const canUndo = computed(() => history.value.length > 0 && state.value.status === 'playing')
   const isWon = computed(() => state.value.status === 'won')
   const isPlayable = computed(() => state.value.status === 'playing')
@@ -107,6 +114,7 @@ export const useGameStore = defineStore('game', () => {
     // A fresh deal replaces every card position outright; any lock from a
     // move in the previous game is meaningless now.
     clearAnimationLock()
+    gameEpoch.value += 1
   }
 
   function clickStock() {
@@ -170,6 +178,7 @@ export const useGameStore = defineStore('game', () => {
     isPlayable,
     canAutoComplete,
     isAnimating,
+    gameEpoch,
     newGame,
     clickStock,
     move,

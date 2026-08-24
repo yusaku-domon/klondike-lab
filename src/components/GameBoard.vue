@@ -26,6 +26,16 @@ const settings = useSettingsStore()
 const selection = ref<PileRef | null>(null)
 const showAutoCompletePrompt = ref(false)
 
+// A fresh deal (newGame) reuses the same pile shapes as the previous game,
+// so a leftover selection can otherwise keep resolving to a real-looking
+// card instead of clearing — drop it whenever a new game actually starts.
+watch(
+  () => store.gameEpoch,
+  () => {
+    selection.value = null
+  },
+)
+
 // Live-measured slot positions, not fixed rem math: the top-row uses a
 // flexible spacer to push foundations to the right edge, so their real
 // on-screen position depends on the viewport width and must come from the
@@ -129,6 +139,14 @@ onBeforeUnmount(() => {
 // canPlaceOnTableau/canPlaceOnFoundation checks applyMove uses) — never an
 // independent judgment of legality, and never a suggestion of the "best"
 // move. A single destination is shown stronger than several.
+//
+// The receiving card itself is highlighted, not the whole column: an empty
+// pile has no card to highlight, so that case still gets a frame on its own
+// empty-slot button (tableauHighlight/foundationHighlight below); a pile
+// that already holds cards gets its top card highlighted instead, via
+// destinationCardHighlights — CardAnimationLayer, not the (invisible,
+// opacity:0) ghost card underneath, is what the player actually sees, so
+// that's where this has to be applied to be visible at all.
 const legalDestinations = computed<PileRef[]>(() => {
   if (!settings.moveNavigationEnabled || !selection.value) return []
   return getLegalDestinations(store.state, selection.value)
@@ -142,13 +160,37 @@ function highlightLevelFor(predicate: (destination: PileRef) => boolean): Highli
   return destinations.length === 1 ? 'strong' : 'weak'
 }
 
+// Empty-slot frame only — 'none' whenever the pile already has a card, since
+// that case is handled by destinationCardHighlights instead.
 function tableauHighlight(columnIndex: number): HighlightLevel {
+  if ((store.state.tableau[columnIndex]?.length ?? 0) > 0) return 'none'
   return highlightLevelFor((d) => d.type === 'tableau' && d.column === columnIndex)
 }
 
 function foundationHighlight(suit: Suit): HighlightLevel {
+  if (store.state.foundations[suit].length > 0) return 'none'
   return highlightLevelFor((d) => d.type === 'foundation' && d.suit === suit)
 }
+
+const destinationCardHighlights = computed<ReadonlyMap<string, 'weak' | 'strong'>>(() => {
+  const destinations = legalDestinations.value
+  const level: 'weak' | 'strong' = destinations.length === 1 ? 'strong' : 'weak'
+  const map = new Map<string, 'weak' | 'strong'>()
+
+  for (const destination of destinations) {
+    if (destination.type === 'tableau') {
+      const column = store.state.tableau[destination.column]
+      const top = column?.[column.length - 1]
+      if (top) map.set(top.id, level)
+    } else if (destination.type === 'foundation') {
+      const pile = store.state.foundations[destination.suit]
+      const top = pile[pile.length - 1]
+      if (top) map.set(top.id, level)
+    }
+  }
+
+  return map
+})
 
 // Prompt once, right when the board newly becomes fully revealed — not on
 // every re-render, and not again just because the player paused/resumed.
@@ -276,6 +318,7 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
         :positions="cardPositions"
         :selected-card-ids="selectedCardIds"
         :animating-card-ids="animatingCardIds"
+        :destination-highlights="destinationCardHighlights"
       />
     </template>
 

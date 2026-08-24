@@ -132,6 +132,25 @@ describe('GameBoard', () => {
     expect(wrapper.find('[data-testid="stock-pile"]').exists()).toBe(true)
   })
 
+  it('clears a leftover selection when a new game starts, even though the new deal reuses the same pile shape', async () => {
+    const { wrapper, store } = mountBoard()
+    // Tableau column 6 always ends at cardIndex 6 in any fresh deal, so a
+    // stale selection there would otherwise keep resolving to a
+    // real-looking (but entirely different) card in the new game.
+    store.state = emptyState({
+      tableau: [[], [], [], [], [], [], [createCard('spades', 9, true)]],
+    })
+    await wrapper.vm.$nextTick()
+
+    await wrapper.get('[data-testid="card-spades-9"]').trigger('click')
+    expect(wrapper.get('[data-testid="card-spades-9"]').attributes('aria-pressed')).toBe('true')
+
+    store.newGame()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('.playing-card.selected').exists()).toBe(false)
+  })
+
   describe('auto-complete prompt', () => {
     const descendingRanks = [...RANKS].reverse()
 
@@ -301,6 +320,17 @@ describe('GameBoard', () => {
       return wrapper.findAll('.tableau-column')[index]!
     }
 
+    // Looks up a card's classes as rendered by CardAnimationLayer — the
+    // actual visible layer (the interactive elements in TableauColumn /
+    // FoundationPile / WastePile are invisible `ghost` copies used only
+    // for click hit-testing).
+    function renderedCardClasses(wrapper: ReturnType<typeof mount>, ariaLabel: string) {
+      const cardWrapper = wrapper
+        .findAll('.card-wrapper')
+        .find((w) => w.find(`[aria-label*="${ariaLabel}"]`).exists())
+      return cardWrapper?.find(`[aria-label*="${ariaLabel}"]`).classes() ?? []
+    }
+
     it('shows no highlight at all when nothing is selected', async () => {
       const { wrapper, store } = mountBoard()
       store.state = emptyState({
@@ -322,12 +352,33 @@ describe('GameBoard', () => {
 
       await wrapper.get('[data-testid="card-clubs-8"]').trigger('click')
 
-      expect(tableauColumnEl(wrapper, 0).classes()).toContain('nav-strong')
-      for (let i = 1; i < 7; i++) {
+      // The destination is column 0's existing top card (hearts-9), not
+      // the whole column.
+      expect(renderedCardClasses(wrapper, 'ハートの9')).toContain('nav-strong')
+      for (let i = 0; i < 7; i++) {
         expect(tableauColumnEl(wrapper, i).classes()).not.toContain('nav-weak')
         expect(tableauColumnEl(wrapper, i).classes()).not.toContain('nav-strong')
       }
       expect(navClasses(wrapper)).toHaveLength(1)
+    })
+
+    it('highlights only the receiving card (clubs-6), distinct from the orange selection outline on hearts-5', async () => {
+      const { wrapper, store } = mountBoard()
+      store.state = emptyState({
+        waste: [createCard('hearts', 5, true)],
+        tableau: [[createCard('clubs', 6, true)], [], [], [], [], [], []],
+      })
+      await wrapper.vm.$nextTick()
+
+      await wrapper.get('[data-testid="card-hearts-5"]').trigger('click')
+
+      expect(renderedCardClasses(wrapper, 'ハートの5')).toContain('selected')
+      expect(renderedCardClasses(wrapper, 'ハートの5')).not.toContain('nav-strong')
+      expect(renderedCardClasses(wrapper, 'クラブの6')).toContain('nav-strong')
+      expect(renderedCardClasses(wrapper, 'クラブの6')).not.toContain('selected')
+      // The whole column no longer lights up — only the card does.
+      expect(tableauColumnEl(wrapper, 0).classes()).not.toContain('nav-strong')
+      expect(tableauColumnEl(wrapper, 0).classes()).not.toContain('nav-weak')
     })
 
     it('weakly highlights every legal destination when there is more than one', async () => {
@@ -388,7 +439,7 @@ describe('GameBoard', () => {
       // [clubs-8, hearts-7] group, per the existing 2-click selection model.
       await wrapper.get('[data-testid="card-clubs-8"]').trigger('click')
 
-      expect(tableauColumnEl(wrapper, 1).classes()).toContain('nav-strong')
+      expect(renderedCardClasses(wrapper, 'ハートの9')).toContain('nav-strong')
       for (const suit of ['clubs', 'diamonds', 'hearts', 'spades']) {
         const el = wrapper.find(`[data-testid="foundation-empty-${suit}"]`)
         if (el.exists()) {
@@ -422,7 +473,7 @@ describe('GameBoard', () => {
       vi.advanceTimersByTime(CARD_MOVE_ANIMATION_MS)
       await wrapper.vm.$nextTick()
       await wrapper.get('[data-testid="card-clubs-8"]').trigger('click')
-      expect(tableauColumnEl(wrapper, 0).classes()).toContain('nav-strong')
+      expect(renderedCardClasses(wrapper, 'ハートの9')).toContain('nav-strong')
     })
 
     it('produces no highlight and no crash after Undo leaves a stale selection', async () => {
@@ -452,7 +503,7 @@ describe('GameBoard', () => {
       vi.advanceTimersByTime(CARD_MOVE_ANIMATION_MS)
       await wrapper.vm.$nextTick()
       await wrapper.get('[data-testid="card-clubs-8"]').trigger('click')
-      expect(tableauColumnEl(wrapper, 0).classes()).toContain('nav-strong')
+      expect(renderedCardClasses(wrapper, 'ハートの9')).toContain('nav-strong')
     })
 
     it('suppresses all highlighting when the setting is off, but selection and the two-click move still work', async () => {
@@ -499,7 +550,7 @@ describe('GameBoard', () => {
 
       settings.setMoveNavigationEnabled(true)
       await wrapper.vm.$nextTick()
-      expect(tableauColumnEl(wrapper, 0).classes()).toContain('nav-strong')
+      expect(renderedCardClasses(wrapper, 'ハートの9')).toContain('nav-strong')
     })
 
     it('a fresh store instance restores the persisted OFF setting and shows no highlight (reload simulation)', async () => {

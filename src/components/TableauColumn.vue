@@ -7,7 +7,11 @@ const props = withDefaults(
     column: Card[]
     columnIndex: number
     selectedFromIndex: number | null
-    /** Move-navigation hint level for this column as a drop target. */
+    /** Move-navigation hint level for this column's empty-slot frame — the
+     * caller only ever passes non-'none' here while the column is empty;
+     * once it holds cards, the receiving (top) card is highlighted
+     * directly on CardAnimationLayer instead, so the whole column no
+     * longer lights up as a destination. */
     highlight?: 'none' | 'weak' | 'strong'
   }>(),
   { highlight: 'none' },
@@ -59,9 +63,8 @@ function isSelected(index: number): boolean {
   min-height: 6.5rem;
 }
 
-/* Move-navigation hints: a faint frame/glow for a reachable column, a
-   stronger one when it's the only legal destination. Never applied to a
-   column the current selection can't legally land on. */
+/* Move-navigation hint for an empty column's own frame (see the highlight
+   prop doc above — this only ever fires while the column is empty). */
 .tableau-column.nav-weak,
 .tableau-column.nav-strong {
   border-radius: 0.4rem;

@@ -8,7 +8,11 @@ const props = withDefaults(
     suit: Suit
     pile: Card[]
     selected: boolean
-    /** Move-navigation hint level for this foundation as a drop target. */
+    /** Move-navigation hint level for this foundation's empty-slot frame —
+     * the caller only ever passes non-'none' here while the pile is empty;
+     * once it holds a card, the receiving (top) card is highlighted
+     * directly on CardAnimationLayer instead (the ghost card here is
+     * invisible, so highlighting it wouldn't be seen). */
     highlight?: 'none' | 'weak' | 'strong'
   }>(),
   { highlight: 'none' },
@@ -28,7 +32,6 @@ const highlightClass = computed(() => (props.highlight !== 'none' ? `nav-${props
     v-if="topCard"
     :card="topCard"
     :selected="selected"
-    :class="highlightClass"
     interactive
     ghost
     @select="$emit('click')"
