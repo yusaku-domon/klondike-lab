@@ -2,7 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { createCard, RANKS, type Card } from './cards'
 import { createInitialGameState, type GameState } from './deal'
 import { isCompleteUniqueDeck } from './invariants'
-import { applyMove, clickStock, drawFromStock, recycleWaste, type MoveCommand, type PileRef } from './moves'
+import {
+  applyMove,
+  clickStock,
+  drawFromStock,
+  getLegalDestinations,
+  recycleWaste,
+  type MoveCommand,
+  type PileRef,
+} from './moves'
 
 function emptyState(overrides: Partial<GameState> = {}): GameState {
   return {
@@ -331,6 +339,97 @@ describe('applyMove', () => {
 
     expect(result.foundations.hearts).toHaveLength(13)
     expect(result.status).toBe('won')
+  })
+})
+
+describe('getLegalDestinations', () => {
+  it('is empty when the source has no movable cards', () => {
+    const state = emptyState()
+    expect(getLegalDestinations(state, { type: 'waste' })).toEqual([])
+    expect(getLegalDestinations(state, { type: 'stock' })).toEqual([])
+  })
+
+  it('is empty when no pile can currently accept the selected card', () => {
+    const state = emptyState({
+      waste: [createCard('hearts', 5, true)],
+      tableau: [[createCard('clubs', 9, true)], [], [], [], [], [], []],
+    })
+    expect(getLegalDestinations(state, { type: 'waste' })).toEqual([])
+  })
+
+  it('finds a single destination', () => {
+    const state = emptyState({
+      waste: [createCard('clubs', 8, true)],
+      tableau: [[createCard('hearts', 9, true)], [], [], [], [], [], []],
+    })
+    expect(getLegalDestinations(state, { type: 'waste' })).toEqual([
+      { type: 'tableau', column: 0 },
+    ])
+  })
+
+  it('finds multiple destinations across several empty tableau columns', () => {
+    const state = emptyState({ waste: [createCard('spades', 13, true)] })
+    expect(getLegalDestinations(state, { type: 'waste' })).toEqual([
+      { type: 'tableau', column: 0 },
+      { type: 'tableau', column: 1 },
+      { type: 'tableau', column: 2 },
+      { type: 'tableau', column: 3 },
+      { type: 'tableau', column: 4 },
+      { type: 'tableau', column: 5 },
+      { type: 'tableau', column: 6 },
+    ])
+  })
+
+  it('includes a fitting foundation alongside a fitting tableau column for a single card', () => {
+    const state = emptyState({
+      waste: [createCard('hearts', 1, true)],
+      tableau: [[createCard('clubs', 2, true)], [], [], [], [], [], []],
+    })
+    expect(getLegalDestinations(state, { type: 'waste' })).toEqual([
+      { type: 'tableau', column: 0 },
+      { type: 'foundation', suit: 'hearts' },
+    ])
+  })
+
+  it('never offers a foundation of a different suit, even while that foundation is empty', () => {
+    const state = emptyState({ waste: [createCard('hearts', 1, true)] })
+    const destinations = getLegalDestinations(state, { type: 'waste' })
+    expect(destinations.filter((d) => d.type === 'foundation')).toEqual([
+      { type: 'foundation', suit: 'hearts' },
+    ])
+  })
+
+  it('excludes foundations entirely for a multi-card run, even if the bottom card would fit alone', () => {
+    const run = [createCard('clubs', 2, true), createCard('hearts', 1, true)]
+    const state = emptyState({
+      foundations: { clubs: [createCard('clubs', 1, true)], diamonds: [], hearts: [], spades: [] },
+      tableau: [run, [createCard('hearts', 9, true)], [], [], [], [], []],
+    })
+    expect(getLegalDestinations(state, { type: 'tableau', column: 0, cardIndex: 0 })).toEqual([])
+  })
+
+  it('finds a tableau destination for a valid multi-card run', () => {
+    const run = [createCard('clubs', 8, true), createCard('hearts', 7, true)]
+    const state = emptyState({
+      tableau: [run, [createCard('hearts', 9, true)], [], [], [], [], []],
+    })
+    expect(getLegalDestinations(state, { type: 'tableau', column: 0, cardIndex: 0 })).toEqual([
+      { type: 'tableau', column: 1 },
+    ])
+  })
+
+  it('excludes the source pile itself', () => {
+    const state = emptyState({
+      foundations: { clubs: [], diamonds: [], hearts: [createCard('hearts', 5, true)], spades: [] },
+    })
+    const destinations = getLegalDestinations(state, { type: 'foundation', suit: 'hearts' })
+    expect(destinations.some((d) => d.type === 'foundation' && d.suit === 'hearts')).toBe(false)
+  })
+
+  it('rejects a card whose suit does not match any foundation', () => {
+    const state = emptyState({ waste: [createCard('hearts', 5, true)] })
+    const destinations = getLegalDestinations(state, { type: 'waste' })
+    expect(destinations.some((d) => d.type === 'foundation')).toBe(false)
   })
 })
 

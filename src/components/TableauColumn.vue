@@ -2,11 +2,16 @@
 import type { Card } from '../domain/cards'
 import PlayingCard from './PlayingCard.vue'
 
-const props = defineProps<{
-  column: Card[]
-  columnIndex: number
-  selectedFromIndex: number | null
-}>()
+const props = withDefaults(
+  defineProps<{
+    column: Card[]
+    columnIndex: number
+    selectedFromIndex: number | null
+    /** Move-navigation hint level for this column as a drop target. */
+    highlight?: 'none' | 'weak' | 'strong'
+  }>(),
+  { highlight: 'none' },
+)
 
 const emit = defineEmits<{ select: [cardIndex: number | null] }>()
 
@@ -16,7 +21,12 @@ function isSelected(index: number): boolean {
 </script>
 
 <template>
-  <div class="tableau-column" role="group" :aria-label="`場札${columnIndex + 1}列目`">
+  <div
+    class="tableau-column"
+    :class="highlight !== 'none' ? `nav-${highlight}` : undefined"
+    role="group"
+    :aria-label="`場札${columnIndex + 1}列目`"
+  >
     <button
       v-if="column.length === 0"
       type="button"
@@ -47,6 +57,24 @@ function isSelected(index: number): boolean {
   position: relative;
   width: 4.5rem;
   min-height: 6.5rem;
+}
+
+/* Move-navigation hints: a faint frame/glow for a reachable column, a
+   stronger one when it's the only legal destination. Never applied to a
+   column the current selection can't legally land on. */
+.tableau-column.nav-weak,
+.tableau-column.nav-strong {
+  border-radius: 0.4rem;
+}
+
+.tableau-column.nav-weak {
+  box-shadow: 0 0 0 2px rgba(79, 209, 197, 0.45);
+}
+
+.tableau-column.nav-strong {
+  box-shadow:
+    0 0 0 3px rgba(79, 209, 197, 0.95),
+    0 0 14px 3px rgba(79, 209, 197, 0.65);
 }
 
 .empty-column {

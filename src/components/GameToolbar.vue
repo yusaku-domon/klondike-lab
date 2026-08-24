@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useGameStore } from '../stores/game'
+import SettingsPanel from './SettingsPanel.vue'
 
 const store = useGameStore()
 const seedInput = ref('')
@@ -59,6 +60,7 @@ const formattedElapsed = computed(() => {
       >
         自動で仕上げる
       </button>
+      <SettingsPanel />
     </div>
 
     <form class="seed-form" @submit.prevent="startWithSeed">

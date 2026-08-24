@@ -3,9 +3,10 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { CARD_MOVE_ANIMATION_MS } from '../animationTiming'
 import type { Suit } from '../domain/cards'
 import { isFullyRevealed } from '../domain/autoComplete'
-import type { PileRef } from '../domain/moves'
+import { getLegalDestinations, type PileRef } from '../domain/moves'
 import { resolveClick, type ClickTarget } from '../domain/selection'
 import { useGameStore } from '../stores/game'
+import { useSettingsStore } from '../stores/settings'
 import {
   computeCardPositions,
   computeMovedCardIds,
@@ -21,6 +22,7 @@ import WastePile from './WastePile.vue'
 const SUITS: Suit[] = ['clubs', 'diamonds', 'hearts', 'spades']
 
 const store = useGameStore()
+const settings = useSettingsStore()
 const selection = ref<PileRef | null>(null)
 const showAutoCompletePrompt = ref(false)
 
@@ -122,6 +124,32 @@ onBeforeUnmount(() => {
   if (animatingCardsTimer !== null) clearTimeout(animatingCardsTimer)
 })
 
+// Move navigation: highlights only the current selection's legal
+// destinations, reusing getLegalDestinations (itself built on the same
+// canPlaceOnTableau/canPlaceOnFoundation checks applyMove uses) — never an
+// independent judgment of legality, and never a suggestion of the "best"
+// move. A single destination is shown stronger than several.
+const legalDestinations = computed<PileRef[]>(() => {
+  if (!settings.moveNavigationEnabled || !selection.value) return []
+  return getLegalDestinations(store.state, selection.value)
+})
+
+type HighlightLevel = 'none' | 'weak' | 'strong'
+
+function highlightLevelFor(predicate: (destination: PileRef) => boolean): HighlightLevel {
+  const destinations = legalDestinations.value
+  if (!destinations.some(predicate)) return 'none'
+  return destinations.length === 1 ? 'strong' : 'weak'
+}
+
+function tableauHighlight(columnIndex: number): HighlightLevel {
+  return highlightLevelFor((d) => d.type === 'tableau' && d.column === columnIndex)
+}
+
+function foundationHighlight(suit: Suit): HighlightLevel {
+  return highlightLevelFor((d) => d.type === 'foundation' && d.suit === suit)
+}
+
 // Prompt once, right when the board newly becomes fully revealed — not on
 // every re-render, and not again just because the player paused/resumed.
 watch(
@@ -219,6 +247,7 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
             :suit="suit"
             :pile="store.state.foundations[suit]"
             :selected="isSelected({ type: 'foundation', suit })"
+            :highlight="foundationHighlight(suit)"
             @click="handleClick({ type: 'foundation', suit })"
           />
         </div>
@@ -235,6 +264,7 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
             :column="column"
             :column-index="columnIndex"
             :selected-from-index="tableauSelectedFromIndex(columnIndex)"
+            :highlight="tableauHighlight(columnIndex)"
             @select="(cardIndex) => handleClick({ type: 'tableau', column: columnIndex, cardIndex })"
           />
         </div>

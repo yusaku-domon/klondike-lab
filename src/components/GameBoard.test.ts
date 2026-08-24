@@ -6,6 +6,7 @@ import { CARD_MOVE_ANIMATION_MS } from '../animationTiming'
 import { createCard, RANKS } from '../domain/cards'
 import type { GameState } from '../domain/deal'
 import { useGameStore } from '../stores/game'
+import { useSettingsStore } from '../stores/settings'
 import GameBoard from './GameBoard.vue'
 
 function emptyState(overrides: Partial<GameState> = {}): GameState {
@@ -288,6 +289,240 @@ describe('GameBoard', () => {
       await wrapper.vm.$nextTick()
 
       expect(findZIndex('スペードのA')).toBeLessThan(findZIndex('ハートの7'))
+    })
+  })
+
+  describe('move navigation highlighting', () => {
+    function navClasses(wrapper: ReturnType<typeof mount>) {
+      return wrapper.findAll('.nav-weak, .nav-strong').map((el) => el.classes())
+    }
+
+    function tableauColumnEl(wrapper: ReturnType<typeof mount>, index: number) {
+      return wrapper.findAll('.tableau-column')[index]!
+    }
+
+    it('shows no highlight at all when nothing is selected', async () => {
+      const { wrapper, store } = mountBoard()
+      store.state = emptyState({
+        waste: [createCard('clubs', 8, true)],
+        tableau: [[createCard('hearts', 9, true)], [], [], [], [], [], []],
+      })
+      await wrapper.vm.$nextTick()
+
+      expect(navClasses(wrapper)).toEqual([])
+    })
+
+    it('strongly highlights the only legal destination, and nothing else', async () => {
+      const { wrapper, store } = mountBoard()
+      store.state = emptyState({
+        waste: [createCard('clubs', 8, true)],
+        tableau: [[createCard('hearts', 9, true)], [], [], [], [], [], []],
+      })
+      await wrapper.vm.$nextTick()
+
+      await wrapper.get('[data-testid="card-clubs-8"]').trigger('click')
+
+      expect(tableauColumnEl(wrapper, 0).classes()).toContain('nav-strong')
+      for (let i = 1; i < 7; i++) {
+        expect(tableauColumnEl(wrapper, i).classes()).not.toContain('nav-weak')
+        expect(tableauColumnEl(wrapper, i).classes()).not.toContain('nav-strong')
+      }
+      expect(navClasses(wrapper)).toHaveLength(1)
+    })
+
+    it('weakly highlights every legal destination when there is more than one', async () => {
+      const { wrapper, store } = mountBoard()
+      store.state = emptyState({ waste: [createCard('spades', 13, true)] })
+      await wrapper.vm.$nextTick()
+
+      await wrapper.get('[data-testid="card-spades-13"]').trigger('click')
+
+      for (let i = 0; i < 7; i++) {
+        expect(tableauColumnEl(wrapper, i).classes()).toContain('nav-weak')
+        expect(tableauColumnEl(wrapper, i).classes()).not.toContain('nav-strong')
+      }
+    })
+
+    it('highlights a legal foundation as the single destination', async () => {
+      const { wrapper, store } = mountBoard()
+      store.state = emptyState({ waste: [createCard('hearts', 1, true)] })
+      await wrapper.vm.$nextTick()
+
+      await wrapper.get('[data-testid="card-hearts-1"]').trigger('click')
+
+      expect(wrapper.get('[data-testid="foundation-empty-hearts"]').classes()).toContain(
+        'nav-strong',
+      )
+      for (const suit of ['clubs', 'diamonds', 'spades']) {
+        expect(wrapper.get(`[data-testid="foundation-empty-${suit}"]`).classes()).not.toContain(
+          'nav-weak',
+        )
+      }
+      for (let i = 0; i < 7; i++) {
+        expect(tableauColumnEl(wrapper, i).classes()).not.toContain('nav-strong')
+      }
+    })
+
+    it('highlights nothing when the selected card has no legal destination', async () => {
+      const { wrapper, store } = mountBoard()
+      store.state = emptyState({
+        waste: [createCard('hearts', 5, true)],
+        tableau: [[createCard('clubs', 9, true)], [], [], [], [], [], []],
+      })
+      await wrapper.vm.$nextTick()
+
+      await wrapper.get('[data-testid="card-hearts-5"]').trigger('click')
+
+      expect(navClasses(wrapper)).toEqual([])
+    })
+
+    it('excludes foundations for a multi-card run even though the bottom card alone would fit', async () => {
+      const { wrapper, store } = mountBoard()
+      const run = [createCard('clubs', 8, true), createCard('hearts', 7, true)]
+      store.state = emptyState({
+        tableau: [run, [createCard('hearts', 9, true)], [], [], [], [], []],
+      })
+      await wrapper.vm.$nextTick()
+
+      // Selecting the bottom of the run (clubs-8) selects the whole
+      // [clubs-8, hearts-7] group, per the existing 2-click selection model.
+      await wrapper.get('[data-testid="card-clubs-8"]').trigger('click')
+
+      expect(tableauColumnEl(wrapper, 1).classes()).toContain('nav-strong')
+      for (const suit of ['clubs', 'diamonds', 'hearts', 'spades']) {
+        const el = wrapper.find(`[data-testid="foundation-empty-${suit}"]`)
+        if (el.exists()) {
+          expect(el.classes()).not.toContain('nav-weak')
+          expect(el.classes()).not.toContain('nav-strong')
+        }
+      }
+    })
+
+    it('clears the highlight once a move completes, and recomputes correctly for the next selection', async () => {
+      const { wrapper, store } = mountBoard()
+      store.state = emptyState({
+        waste: [createCard('clubs', 8, true), createCard('hearts', 1, true)],
+        tableau: [[createCard('hearts', 9, true)], [], [], [], [], [], []],
+      })
+      await wrapper.vm.$nextTick()
+
+      await wrapper.get('[data-testid="card-hearts-1"]').trigger('click')
+      expect(wrapper.get('[data-testid="foundation-empty-hearts"]').classes()).toContain(
+        'nav-strong',
+      )
+
+      await wrapper.get('[data-testid="foundation-empty-hearts"]').trigger('click')
+      await wrapper.vm.$nextTick()
+      expect(store.state.foundations.hearts).toHaveLength(1)
+      expect(navClasses(wrapper)).toEqual([])
+
+      // Consecutive operation: wait out the move's animation lock, then
+      // select the newly exposed waste card and confirm the highlight
+      // recomputes for it, not the previous selection.
+      vi.advanceTimersByTime(CARD_MOVE_ANIMATION_MS)
+      await wrapper.vm.$nextTick()
+      await wrapper.get('[data-testid="card-clubs-8"]').trigger('click')
+      expect(tableauColumnEl(wrapper, 0).classes()).toContain('nav-strong')
+    })
+
+    it('produces no highlight and no crash after Undo leaves a stale selection', async () => {
+      const { wrapper, store } = mountBoard()
+      store.state = emptyState({
+        waste: [createCard('clubs', 8, true)],
+        tableau: [[createCard('hearts', 9, true)], [], [], [], [], [], []],
+      })
+      await wrapper.vm.$nextTick()
+
+      await wrapper.get('[data-testid="card-clubs-8"]').trigger('click')
+      await wrapper.get('[data-testid="card-hearts-9"]').trigger('click')
+      await wrapper.vm.$nextTick()
+      expect(store.state.tableau[0]).toEqual([
+        createCard('hearts', 9, true),
+        createCard('clubs', 8, true),
+      ])
+
+      store.undo()
+      await wrapper.vm.$nextTick()
+
+      expect(store.state.waste).toEqual([createCard('clubs', 8, true)])
+      expect(() => navClasses(wrapper)).not.toThrow()
+      expect(navClasses(wrapper)).toEqual([])
+
+      // The board is fully usable again after the undo's animation lock clears.
+      vi.advanceTimersByTime(CARD_MOVE_ANIMATION_MS)
+      await wrapper.vm.$nextTick()
+      await wrapper.get('[data-testid="card-clubs-8"]').trigger('click')
+      expect(tableauColumnEl(wrapper, 0).classes()).toContain('nav-strong')
+    })
+
+    it('suppresses all highlighting when the setting is off, but selection and the two-click move still work', async () => {
+      const pinia = createPinia()
+      setActivePinia(pinia)
+      const store = useGameStore()
+      const settings = useSettingsStore()
+      settings.setMoveNavigationEnabled(false)
+      const wrapper = mount(GameBoard, { global: { plugins: [pinia] } })
+
+      store.state = emptyState({
+        waste: [createCard('clubs', 8, true)],
+        tableau: [[createCard('hearts', 9, true)], [], [], [], [], [], []],
+      })
+      await wrapper.vm.$nextTick()
+
+      await wrapper.get('[data-testid="card-clubs-8"]').trigger('click')
+      expect(wrapper.get('[data-testid="card-clubs-8"]').attributes('aria-pressed')).toBe('true')
+      expect(navClasses(wrapper)).toEqual([])
+
+      await wrapper.get('[data-testid="card-hearts-9"]').trigger('click')
+      await wrapper.vm.$nextTick()
+
+      expect(store.state.tableau[0]).toEqual([
+        createCard('hearts', 9, true),
+        createCard('clubs', 8, true),
+      ])
+      expect(store.state.waste).toEqual([])
+    })
+
+    it('restores highlighting immediately after the setting is switched back on', async () => {
+      const { wrapper, store } = mountBoard()
+      const settings = useSettingsStore()
+      store.state = emptyState({
+        waste: [createCard('clubs', 8, true)],
+        tableau: [[createCard('hearts', 9, true)], [], [], [], [], [], []],
+      })
+      await wrapper.vm.$nextTick()
+
+      settings.setMoveNavigationEnabled(false)
+      await wrapper.get('[data-testid="card-clubs-8"]').trigger('click')
+      await wrapper.vm.$nextTick()
+      expect(navClasses(wrapper)).toEqual([])
+
+      settings.setMoveNavigationEnabled(true)
+      await wrapper.vm.$nextTick()
+      expect(tableauColumnEl(wrapper, 0).classes()).toContain('nav-strong')
+    })
+
+    it('a fresh store instance restores the persisted OFF setting and shows no highlight (reload simulation)', async () => {
+      localStorage.setItem(
+        'klondike-lab.settings',
+        JSON.stringify({ moveNavigationEnabled: false }),
+      )
+
+      const pinia = createPinia()
+      setActivePinia(pinia)
+      const store = useGameStore()
+      const settings = useSettingsStore()
+      expect(settings.moveNavigationEnabled).toBe(false)
+
+      const wrapper = mount(GameBoard, { global: { plugins: [pinia] } })
+      store.state = emptyState({
+        waste: [createCard('clubs', 8, true)],
+        tableau: [[createCard('hearts', 9, true)], [], [], [], [], [], []],
+      })
+      await wrapper.vm.$nextTick()
+
+      await wrapper.get('[data-testid="card-clubs-8"]').trigger('click')
+      expect(navClasses(wrapper)).toEqual([])
     })
   })
 })
