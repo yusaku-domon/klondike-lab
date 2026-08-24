@@ -1,26 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { emptyState } from '../testFixtures'
 import { createCard, RANKS, type Rank } from './cards'
-import type { GameState } from './deal'
 import { autoCompleteAll, canAutoComplete } from './autoComplete'
-
-function emptyState(overrides: Partial<GameState> = {}): GameState {
-  return {
-    schemaVersion: 1,
-    rulesVersion: 1,
-    shuffleVersion: 1,
-    scoringVersion: 1,
-    seed: 0,
-    stock: [],
-    waste: [],
-    tableau: [[], [], [], [], [], [], []],
-    foundations: { clubs: [], diamonds: [], hearts: [], spades: [] },
-    score: 0,
-    elapsedSeconds: 0,
-    status: 'playing',
-    moveCount: 0,
-    ...overrides,
-  }
-}
 
 // King-to-Ace order so index0 (bottom) is King and the last index (top) is
 // Ace — exposing exactly the next rank each suit's foundation needs.

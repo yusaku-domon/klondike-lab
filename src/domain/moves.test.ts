@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { emptyState } from '../testFixtures'
 import { createCard, RANKS, type Card } from './cards'
 import { createInitialGameState, type GameState } from './deal'
 import { isCompleteUniqueDeck } from './invariants'
@@ -11,25 +12,6 @@ import {
   type MoveCommand,
   type PileRef,
 } from './moves'
-
-function emptyState(overrides: Partial<GameState> = {}): GameState {
-  return {
-    schemaVersion: 1,
-    rulesVersion: 1,
-    shuffleVersion: 1,
-    scoringVersion: 1,
-    seed: 0,
-    stock: [],
-    waste: [],
-    tableau: [[], [], [], [], [], [], []],
-    foundations: { clubs: [], diamonds: [], hearts: [], spades: [] },
-    score: 0,
-    elapsedSeconds: 0,
-    status: 'playing',
-    moveCount: 0,
-    ...overrides,
-  }
-}
 
 describe('drawFromStock', () => {
   it('moves the top stock card face up onto the waste', () => {

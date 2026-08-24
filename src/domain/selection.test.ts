@@ -1,27 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
+import { emptyState } from '../testFixtures'
 import { createCard } from './cards'
-import type { GameState } from './deal'
 import { applyMove, type MoveCommand } from './moves'
 import { isSelectable, resolveClick, type ClickTarget } from './selection'
-
-function emptyState(overrides: Partial<GameState> = {}): GameState {
-  return {
-    schemaVersion: 1,
-    rulesVersion: 1,
-    shuffleVersion: 1,
-    scoringVersion: 1,
-    seed: 0,
-    stock: [],
-    waste: [],
-    tableau: [[], [], [], [], [], [], []],
-    foundations: { clubs: [], diamonds: [], hearts: [], spades: [] },
-    score: 0,
-    elapsedSeconds: 0,
-    status: 'playing',
-    moveCount: 0,
-    ...overrides,
-  }
-}
 
 describe('isSelectable', () => {
   it('is never selectable for stock', () => {

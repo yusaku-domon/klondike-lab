@@ -32,6 +32,17 @@ export interface CardPosition {
   z: number
 }
 
+/**
+ * Move-navigation hint strength, shared by every component that renders a
+ * highlight (GameBoard, TableauColumn, FoundationPile, CardAnimationLayer)
+ * so they can't drift out of sync with each other.
+ */
+export type HighlightLevel = 'none' | 'weak' | 'strong'
+
+/** A destination always has one of these two — 'none' only applies to a
+ * pile that isn't a legal destination, which never gets an entry at all. */
+export type DestinationHighlightLevel = Exclude<HighlightLevel, 'none'>
+
 export function computeCardPositions(
   state: GameState,
   slots: SlotLayout,

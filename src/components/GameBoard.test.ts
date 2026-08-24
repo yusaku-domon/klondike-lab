@@ -3,30 +3,12 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CARD_MOVE_ANIMATION_MS } from '../animationTiming'
+import { emptyState } from '../testFixtures'
 import { createCard, RANKS } from '../domain/cards'
 import type { GameState } from '../domain/deal'
 import { useGameStore } from '../stores/game'
 import { useSettingsStore } from '../stores/settings'
 import GameBoard from './GameBoard.vue'
-
-function emptyState(overrides: Partial<GameState> = {}): GameState {
-  return {
-    schemaVersion: 1,
-    rulesVersion: 1,
-    shuffleVersion: 1,
-    scoringVersion: 1,
-    seed: 0,
-    stock: [],
-    waste: [],
-    tableau: [[], [], [], [], [], [], []],
-    foundations: { clubs: [], diamonds: [], hearts: [], spades: [] },
-    score: 0,
-    elapsedSeconds: 0,
-    status: 'playing',
-    moveCount: 0,
-    ...overrides,
-  }
-}
 
 function mountBoard() {
   const pinia = createPinia()

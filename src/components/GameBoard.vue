@@ -11,6 +11,8 @@ import {
   computeCardPositions,
   computeMovedCardIds,
   TABLEAU_STACK_OFFSET_REM,
+  type DestinationHighlightLevel,
+  type HighlightLevel,
   type SlotLayout,
 } from './boardLayout'
 import CardAnimationLayer from './CardAnimationLayer.vue'
@@ -152,8 +154,6 @@ const legalDestinations = computed<PileRef[]>(() => {
   return getLegalDestinations(store.state, selection.value)
 })
 
-type HighlightLevel = 'none' | 'weak' | 'strong'
-
 function highlightLevelFor(predicate: (destination: PileRef) => boolean): HighlightLevel {
   const destinations = legalDestinations.value
   if (!destinations.some(predicate)) return 'none'
@@ -172,10 +172,10 @@ function foundationHighlight(suit: Suit): HighlightLevel {
   return highlightLevelFor((d) => d.type === 'foundation' && d.suit === suit)
 }
 
-const destinationCardHighlights = computed<ReadonlyMap<string, 'weak' | 'strong'>>(() => {
+const destinationCardHighlights = computed<ReadonlyMap<string, DestinationHighlightLevel>>(() => {
   const destinations = legalDestinations.value
-  const level: 'weak' | 'strong' = destinations.length === 1 ? 'strong' : 'weak'
-  const map = new Map<string, 'weak' | 'strong'>()
+  const level: DestinationHighlightLevel = destinations.length === 1 ? 'strong' : 'weak'
+  const map = new Map<string, DestinationHighlightLevel>()
 
   for (const destination of destinations) {
     if (destination.type === 'tableau') {

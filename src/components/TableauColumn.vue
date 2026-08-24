@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Card } from '../domain/cards'
+import type { HighlightLevel } from './boardLayout'
 import PlayingCard from './PlayingCard.vue'
 
 const props = withDefaults(
@@ -12,7 +13,7 @@ const props = withDefaults(
      * once it holds cards, the receiving (top) card is highlighted
      * directly on CardAnimationLayer instead, so the whole column no
      * longer lights up as a destination. */
-    highlight?: 'none' | 'weak' | 'strong'
+    highlight?: HighlightLevel
   }>(),
   { highlight: 'none' },
 )
@@ -64,20 +65,13 @@ function isSelected(index: number): boolean {
 }
 
 /* Move-navigation hint for an empty column's own frame (see the highlight
-   prop doc above — this only ever fires while the column is empty). */
+   prop doc above — this only ever fires while the column is empty). The
+   .nav-weak/.nav-strong box-shadow itself is defined globally in
+   style.css; unlike .empty-pile/.playing-card, .tableau-column has no
+   border-radius of its own, so it needs one only while highlighted. */
 .tableau-column.nav-weak,
 .tableau-column.nav-strong {
   border-radius: 0.4rem;
-}
-
-.tableau-column.nav-weak {
-  box-shadow: 0 0 0 2px rgba(79, 209, 197, 0.45);
-}
-
-.tableau-column.nav-strong {
-  box-shadow:
-    0 0 0 3px rgba(79, 209, 197, 0.95),
-    0 0 14px 3px rgba(79, 209, 197, 0.65);
 }
 
 .empty-column {

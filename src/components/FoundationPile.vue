@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { Card, Suit } from '../domain/cards'
+import type { HighlightLevel } from './boardLayout'
 import PlayingCard from './PlayingCard.vue'
 
 const props = withDefaults(
@@ -13,7 +14,7 @@ const props = withDefaults(
      * once it holds a card, the receiving (top) card is highlighted
      * directly on CardAnimationLayer instead (the ghost card here is
      * invisible, so highlighting it wouldn't be seen). */
-    highlight?: 'none' | 'weak' | 'strong'
+    highlight?: HighlightLevel
   }>(),
   { highlight: 'none' },
 )
@@ -59,16 +60,5 @@ const highlightClass = computed(() => (props.highlight !== 'none' ? `nav-${props
   color: #cfe9db;
   font-size: 1.8rem;
   padding: 0;
-}
-
-/* Move-navigation hints: same frame/glow language as TableauColumn's. */
-.nav-weak {
-  box-shadow: 0 0 0 2px rgba(79, 209, 197, 0.45);
-}
-
-.nav-strong {
-  box-shadow:
-    0 0 0 3px rgba(79, 209, 197, 0.95),
-    0 0 14px 3px rgba(79, 209, 197, 0.65);
 }
 </style>

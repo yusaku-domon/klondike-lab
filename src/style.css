@@ -14,3 +14,22 @@ body {
 #app {
   height: 100%;
 }
+
+/*
+ * Move-navigation hints, shared across TableauColumn (empty-column frame),
+ * FoundationPile (empty-pile frame), and CardAnimationLayer (a receiving
+ * card that already holds a pile) — global so all three stay visually
+ * identical without copy-pasting the same box-shadow values. A faint glow
+ * for a reachable destination, a stronger one when it's the only legal
+ * one. Deliberately a different technique (box-shadow, teal) from
+ * .selected's amber outline+lift so the two are never visually confused.
+ */
+.nav-weak {
+  box-shadow: 0 0 0 2px rgba(79, 209, 197, 0.45);
+}
+
+.nav-strong {
+  box-shadow:
+    0 0 0 3px rgba(79, 209, 197, 0.95),
+    0 0 14px 3px rgba(79, 209, 197, 0.65);
+}
