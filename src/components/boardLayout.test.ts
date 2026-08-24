@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createCard } from '../domain/cards'
 import type { GameState } from '../domain/deal'
-import { computeCardPositions, type SlotLayout } from './boardLayout'
+import { computeCardPositions, computeMovedCardIds, type SlotLayout } from './boardLayout'
 
 function emptyState(overrides: Partial<GameState> = {}): GameState {
   return {
@@ -90,5 +90,57 @@ describe('computeCardPositions', () => {
     })
     const positions = computeCardPositions(state, fakeSlots, STACK_OFFSET_PX)
     expect(positions.get('spades-1')).toEqual({ x: 504, y: 136, z: 0 })
+  })
+})
+
+describe('computeMovedCardIds', () => {
+  it('is empty when nothing changed pile or position', () => {
+    const state = emptyState({ waste: [createCard('spades', 13, true)] })
+    expect(computeMovedCardIds(state, state)).toEqual(new Set())
+  })
+
+  it('flags a single card that moved from waste to a tableau column', () => {
+    const before = emptyState({ waste: [createCard('spades', 13, true)] })
+    const after = emptyState({ tableau: [[createCard('spades', 13, true)], [], [], [], [], [], []] })
+
+    expect(computeMovedCardIds(before, after)).toEqual(new Set(['spades-13']))
+  })
+
+  it('flags every card in a multi-card tableau run that moved together', () => {
+    const run = [createCard('clubs', 8, true), createCard('hearts', 7, true)]
+    const destinationTop = createCard('hearts', 9, true)
+    const before = emptyState({ tableau: [[destinationTop], run, [], [], [], [], []] })
+    const after = emptyState({
+      tableau: [[destinationTop, ...run], [], [], [], [], [], []],
+    })
+
+    expect(computeMovedCardIds(before, after)).toEqual(new Set(['clubs-8', 'hearts-7']))
+  })
+
+  it('does not flag a card that only got auto-flipped face up in place', () => {
+    const before = emptyState({
+      tableau: [[createCard('clubs', 8, false), createCard('hearts', 7, true)], [], [], [], [], [], []],
+    })
+    const after = emptyState({
+      tableau: [[createCard('clubs', 8, true), createCard('hearts', 7, true)], [], [], [], [], [], []],
+    })
+
+    // hearts-7 moved away (leaving clubs-8 as the exposed remainder,
+    // flipped in place at the same index) — only hearts-7 should be flagged.
+    const afterWithMove = emptyState({
+      tableau: [[createCard('clubs', 8, true)], [createCard('hearts', 7, true)], [], [], [], [], []],
+    })
+    expect(computeMovedCardIds(before, afterWithMove)).toEqual(new Set(['hearts-7']))
+
+    // Pure flip with nothing removed above it: no cards moved at all.
+    expect(computeMovedCardIds(before, after)).toEqual(new Set())
+  })
+
+  it('flags every card when the stock is recycled back from the waste', () => {
+    const cards = [createCard('clubs', 1, true), createCard('clubs', 2, true)]
+    const before = emptyState({ waste: cards })
+    const after = emptyState({ stock: [...cards].reverse().map((c) => ({ ...c, faceUp: false })) })
+
+    expect(computeMovedCardIds(before, after)).toEqual(new Set(['clubs-1', 'clubs-2']))
   })
 })

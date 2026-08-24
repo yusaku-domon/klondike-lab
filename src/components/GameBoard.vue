@@ -1,11 +1,17 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { CARD_MOVE_ANIMATION_MS } from '../animationTiming'
 import type { Suit } from '../domain/cards'
 import { isFullyRevealed } from '../domain/autoComplete'
 import type { PileRef } from '../domain/moves'
 import { resolveClick, type ClickTarget } from '../domain/selection'
 import { useGameStore } from '../stores/game'
-import { computeCardPositions, TABLEAU_STACK_OFFSET_REM, type SlotLayout } from './boardLayout'
+import {
+  computeCardPositions,
+  computeMovedCardIds,
+  TABLEAU_STACK_OFFSET_REM,
+  type SlotLayout,
+} from './boardLayout'
 import CardAnimationLayer from './CardAnimationLayer.vue'
 import FoundationPile from './FoundationPile.vue'
 import StockPile from './StockPile.vue'
@@ -85,6 +91,35 @@ onBeforeUnmount(() => {
 const cardPositions = computed(() => {
   if (!slotLayout.value) return new Map()
   return computeCardPositions(store.state, slotLayout.value, stackOffsetPx.value)
+})
+
+// Cards that just relocated (pile and/or index changed) get bumped above
+// the rest of the layer for the duration of the move's CSS transition, so
+// they never visually dip behind another pile while sliding across it.
+// Pure diff of before/after state — doesn't know or care what kind of
+// action caused the change, so it can't affect move legality, scoring,
+// undo, or persistence.
+const animatingCardIds = ref<ReadonlySet<string>>(new Set())
+let animatingCardsTimer: ReturnType<typeof setTimeout> | null = null
+
+watch(
+  () => store.state,
+  (next, previous) => {
+    if (!previous) return
+    const moved = computeMovedCardIds(previous, next)
+    if (moved.size === 0) return
+
+    animatingCardIds.value = moved
+    if (animatingCardsTimer !== null) clearTimeout(animatingCardsTimer)
+    animatingCardsTimer = setTimeout(() => {
+      animatingCardsTimer = null
+      animatingCardIds.value = new Set()
+    }, CARD_MOVE_ANIMATION_MS)
+  },
+)
+
+onBeforeUnmount(() => {
+  if (animatingCardsTimer !== null) clearTimeout(animatingCardsTimer)
 })
 
 // Prompt once, right when the board newly becomes fully revealed — not on
@@ -210,6 +245,7 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
         :state="store.state"
         :positions="cardPositions"
         :selected-card-ids="selectedCardIds"
+        :animating-card-ids="animatingCardIds"
       />
     </template>
 

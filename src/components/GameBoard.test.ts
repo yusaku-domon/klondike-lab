@@ -255,4 +255,39 @@ describe('GameBoard', () => {
       expect(store.state.waste).toHaveLength(2)
     })
   })
+
+  describe('moved card stays above other piles while animating', () => {
+    it('elevates the moved card above a deeper stationary pile during the transition, then drops back afterward', async () => {
+      const { wrapper, store } = mountBoard()
+      const deepColumn = [
+        createCard('clubs', 10, true),
+        createCard('hearts', 9, true),
+        createCard('clubs', 8, true),
+        createCard('hearts', 7, true),
+      ]
+      store.state = emptyState({
+        waste: [createCard('spades', 1, true)],
+        tableau: [deepColumn, [], [], [], [], [], []],
+      })
+      await wrapper.vm.$nextTick()
+
+      await wrapper.get('[data-testid="card-spades-1"]').trigger('click')
+      await wrapper.get('[data-testid="foundation-empty-spades"]').trigger('click')
+      await wrapper.vm.$nextTick()
+
+      const findZIndex = (ariaLabel: string) => {
+        const wrapperDiv = wrapper
+          .findAll('.card-wrapper')
+          .find((w) => w.find(`[aria-label*="${ariaLabel}"]`).exists())
+        return Number(wrapperDiv?.attributes('style')?.match(/z-index:\s*(-?\d+)/)?.[1])
+      }
+
+      expect(findZIndex('スペードのA')).toBeGreaterThan(findZIndex('ハートの7'))
+
+      vi.advanceTimersByTime(CARD_MOVE_ANIMATION_MS)
+      await wrapper.vm.$nextTick()
+
+      expect(findZIndex('スペードのA')).toBeLessThan(findZIndex('ハートの7'))
+    })
+  })
 })

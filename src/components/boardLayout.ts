@@ -64,3 +64,35 @@ export function computeCardPositions(
 
   return positions
 }
+
+function buildLocationMap(state: GameState): Map<string, string> {
+  const map = new Map<string, string>()
+  state.stock.forEach((card, index) => map.set(card.id, `stock:${index}`))
+  state.waste.forEach((card, index) => map.set(card.id, `waste:${index}`))
+  state.tableau.forEach((column, columnIndex) => {
+    column.forEach((card, index) => map.set(card.id, `tableau:${columnIndex}:${index}`))
+  })
+  SUITS.forEach((suit) => {
+    state.foundations[suit].forEach((card, index) => map.set(card.id, `foundation:${suit}:${index}`))
+  })
+  return map
+}
+
+/**
+ * Card IDs whose pile (and/or position within that pile) differs between
+ * the two states — i.e. the cards a move/draw/undo/auto-complete actually
+ * relocated, as opposed to ones that merely got auto-flipped face up in
+ * place. Pure and state-only: doesn't know or care what kind of action
+ * caused the change, so it never touches domain/store logic.
+ */
+export function computeMovedCardIds(previous: GameState, next: GameState): Set<string> {
+  const previousLocations = buildLocationMap(previous)
+  const nextLocations = buildLocationMap(next)
+  const moved = new Set<string>()
+
+  for (const [id, location] of nextLocations) {
+    if (previousLocations.get(id) !== location) moved.add(id)
+  }
+
+  return moved
+}

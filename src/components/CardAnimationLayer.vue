@@ -10,7 +10,16 @@ const props = defineProps<{
   state: GameState
   positions: Map<string, CardPosition>
   selectedCardIds: ReadonlySet<string>
+  /** Cards currently mid-move: rendered above the entire rest of the
+   * layer so they never dip behind another pile they slide past, while
+   * keeping their relative order within the moving group intact. */
+  animatingCardIds: ReadonlySet<string>
 }>()
+
+// Comfortably above the largest possible in-pile z (a full 52-card
+// tableau column tops out at 51), so an animating card/run always wins
+// against any stationary pile it might visually cross while sliding.
+const ANIMATING_Z_OFFSET = 1000
 
 // Fixed render order (never re-derived from which pile a card is
 // currently in) so a card moving piles never reorders its DOM node.
@@ -45,7 +54,8 @@ const cardsById = computed<Map<string, Card>>(() => {
       class="card-wrapper"
       :style="{
         transform: `translate(${positions.get(id)?.x ?? 0}px, ${positions.get(id)?.y ?? 0}px)`,
-        zIndex: positions.get(id)?.z ?? 0,
+        zIndex:
+          (positions.get(id)?.z ?? 0) + (animatingCardIds.has(id) ? ANIMATING_Z_OFFSET : 0),
         transitionDuration: `${CARD_MOVE_ANIMATION_MS}ms`,
       }"
     >
