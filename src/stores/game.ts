@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, onScopeDispose, shallowRef } from 'vue'
 import { CARD_MOVE_ANIMATION_MS } from '../animationTiming'
-import { autoCompleteAll, canAutoComplete as canAutoCompleteState } from '../domain/autoComplete'
+import { autoCompleteSteps, canAutoComplete as canAutoCompleteState } from '../domain/autoComplete'
 import { createInitialGameState, type GameState } from '../domain/deal'
 import { applyMove, clickStock as clickStockMove, type MoveCommand } from '../domain/moves'
 import type { ShuffleSeed } from '../domain/shuffle'
@@ -125,9 +125,54 @@ export const useGameStore = defineStore('game', () => {
     return applyIfChanged(applyMove(state.value, command))
   }
 
-  function autoComplete() {
-    if (!canAutoComplete.value) return
-    applyIfChanged(autoCompleteAll(state.value))
+  // Plays the cascade back one atomic move at a time (each foundation move
+  // or stock click gets its own state update, CARD_MOVE_ANIMATION_MS apart)
+  // instead of jumping straight to the final state — so GameBoard's
+  // existing per-move animation watcher, which only ever sees one state
+  // transition at a time, animates each card individually exactly as it
+  // would for a manual move. Still counts as a SINGLE undo step and a
+  // single persisted save, matching the pre-existing external contract:
+  // history/persist only happen once, after every step has landed.
+  async function autoComplete() {
+    // isAnimating also rejects a re-entrant call: it's set true below
+    // before this function's first `await`, so a second call arriving
+    // synchronously right after (bypassing the UI's own isAnimating-gated
+    // click handlers) still can't slip in — canAutoComplete alone would
+    // stay true throughout the cascade and wouldn't catch this.
+    if (!canAutoComplete.value || isAnimatingRef.value) return
+
+    const steps = autoCompleteSteps(state.value)
+    if (steps.length === 0) return
+
+    const previous = state.value
+    const startEpoch = gameEpoch.value
+
+    // Holds the input lock for the whole cascade, not just one move's
+    // worth — a manual click or a second auto-complete trigger must stay
+    // blocked until the last card has actually landed.
+    if (animationTimer !== null) {
+      clearTimeout(animationTimer)
+      animationTimer = null
+    }
+    isAnimatingRef.value = true
+
+    for (const step of steps) {
+      // A new game started mid-cascade (gameEpoch only changes there):
+      // newGame() already reset state/history/persist and cleared the
+      // animation lock itself, so stop immediately without touching any
+      // of it again — applying a stale step now would resurrect cards
+      // from the abandoned game into the fresh deal.
+      if (gameEpoch.value !== startEpoch) return
+      state.value = step
+      await new Promise<void>((resolve) => setTimeout(resolve, CARD_MOVE_ANIMATION_MS))
+    }
+
+    if (gameEpoch.value !== startEpoch) return
+
+    pushHistory(previous)
+    persist()
+    syncTimer()
+    isAnimatingRef.value = false
   }
 
   function undo() {

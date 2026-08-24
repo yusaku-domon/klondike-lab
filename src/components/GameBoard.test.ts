@@ -152,7 +152,9 @@ describe('GameBoard', () => {
 
     it('appears the moment the board becomes fully revealed', async () => {
       const { wrapper, store } = mountBoard()
-      store.state = emptyState({ stock: [createCard('clubs', 1, false)] })
+      store.state = emptyState({
+        tableau: [[createCard('clubs', 1, false)], [], [], [], [], [], []],
+      })
       await wrapper.vm.$nextTick()
       expect(wrapper.find('.auto-complete-prompt').exists()).toBe(false)
 
@@ -162,7 +164,24 @@ describe('GameBoard', () => {
       expect(wrapper.find('.auto-complete-prompt').exists()).toBe(true)
     })
 
-    it('YES runs the cascade and hides the prompt', async () => {
+    it('appears even while the stock/waste still have cards, as long as the tableau is fully revealed', async () => {
+      const { wrapper, store } = mountBoard()
+      store.state = emptyState({
+        tableau: [[createCard('clubs', 1, false)], [], [], [], [], [], []],
+      })
+      await wrapper.vm.$nextTick()
+
+      store.state = emptyState({
+        stock: [createCard('spades', 5, false)],
+        waste: [createCard('spades', 1, true)],
+        tableau: [[createCard('clubs', 1, true)], [], [], [], [], [], []],
+      })
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.find('.auto-complete-prompt').exists()).toBe(true)
+    })
+
+    it('YES hides the prompt immediately, then runs the cascade to completion', async () => {
       const { wrapper, store } = mountBoard()
       store.state = almostFullyRevealedState()
       await wrapper.vm.$nextTick()
@@ -170,8 +189,15 @@ describe('GameBoard', () => {
       await wrapper.get('.auto-complete-prompt button:first-child').trigger('click')
       await wrapper.vm.$nextTick()
 
-      expect(store.isWon).toBe(true)
+      // The prompt itself closes right away — it doesn't wait for the
+      // (multi-second) cascade to actually finish.
       expect(wrapper.find('.auto-complete-prompt').exists()).toBe(false)
+      expect(store.isWon).toBe(false)
+
+      await vi.advanceTimersByTimeAsync(52 * CARD_MOVE_ANIMATION_MS)
+      await wrapper.vm.$nextTick()
+
+      expect(store.isWon).toBe(true)
     })
 
     it('NO only hides the prompt; the manual button stays available', async () => {
@@ -206,12 +232,12 @@ describe('GameBoard', () => {
     it('ignores a second click while the previous move is still animating, then accepts input again', async () => {
       const { wrapper, store } = mountBoard()
       store.state = emptyState({
-        // A face-down card keeps isFullyRevealed false, so the unrelated
+        // A face-down tableau card keeps isFullyRevealed false (it no
+        // longer looks at the stock at all), so the unrelated
         // auto-complete prompt (which would itself block board clicks)
         // never appears and confounds this test.
-        stock: [createCard('clubs', 9, false)],
         waste: [createCard('spades', 13, true)],
-        tableau: [[], [createCard('hearts', 13, true)], [], [], [], [], []],
+        tableau: [[], [createCard('hearts', 13, true)], [], [], [], [], [createCard('clubs', 9, false)]],
       })
       await wrapper.vm.$nextTick()
 
@@ -290,6 +316,120 @@ describe('GameBoard', () => {
       await wrapper.vm.$nextTick()
 
       expect(findZIndex('スペードのA')).toBeLessThan(findZIndex('ハートの7'))
+    })
+  })
+
+  describe('auto-complete cascade animation', () => {
+    function findZIndex(wrapper: ReturnType<typeof mount>, ariaLabel: string) {
+      const wrapperDiv = wrapper
+        .findAll('.card-wrapper')
+        .find((w) => w.find(`[aria-label*="${ariaLabel}"]`).exists())
+      return Number(wrapperDiv?.attributes('style')?.match(/z-index:\s*(-?\d+)/)?.[1])
+    }
+
+    function twoCardCascadeState(): GameState {
+      return emptyState({
+        foundations: { clubs: [createCard('clubs', 4, true)], diamonds: [], hearts: [], spades: [] },
+        tableau: [
+          [createCard('hearts', 9, true), createCard('clubs', 5, true)],
+          [createCard('hearts', 1, true)],
+          [],
+          [],
+          [],
+          [],
+          [],
+        ],
+      })
+    }
+
+    it('moves one card at a time — the next card only starts once the previous one has landed', async () => {
+      const { wrapper, store } = mountBoard()
+      store.state = twoCardCascadeState()
+      await wrapper.vm.$nextTick()
+
+      store.autoComplete()
+      await wrapper.vm.$nextTick()
+
+      // First tick: clubs-5 is elevated (mid-move) and already relocated in
+      // state; hearts-1 has not moved yet — no simultaneous movement.
+      expect(findZIndex(wrapper, 'クラブの5')).toBeGreaterThan(findZIndex(wrapper, 'ハートの9'))
+      expect(store.state.foundations.clubs).toEqual([
+        createCard('clubs', 4, true),
+        createCard('clubs', 5, true),
+      ])
+      expect(store.state.tableau[1]).toEqual([createCard('hearts', 1, true)])
+
+      await vi.advanceTimersByTimeAsync(CARD_MOVE_ANIMATION_MS)
+      await wrapper.vm.$nextTick()
+
+      // clubs-5's elevation has dropped back — it's no longer mid-move —
+      // and hearts-1 is now the one elevated, confirming the two moves
+      // never overlapped.
+      expect(findZIndex(wrapper, 'ハートのA')).toBeGreaterThan(findZIndex(wrapper, 'ハートの9'))
+      expect(store.state.tableau[1]).toEqual([])
+
+      await vi.advanceTimersByTimeAsync(CARD_MOVE_ANIMATION_MS)
+      await wrapper.vm.$nextTick()
+
+      expect(store.state.foundations.hearts).toEqual([createCard('hearts', 1, true)])
+    })
+
+    it('blocks manual clicks and a second auto-complete trigger for the whole cascade', async () => {
+      const { wrapper, store } = mountBoard()
+      store.state = twoCardCascadeState()
+      await wrapper.vm.$nextTick()
+
+      store.autoComplete()
+      await wrapper.vm.$nextTick()
+      expect(store.isAnimating).toBe(true)
+
+      // A manual click on an unrelated, otherwise-legal target is ignored.
+      await wrapper.get('[data-testid="card-hearts-1"]').trigger('click')
+      expect(store.state.tableau[1]).toEqual([createCard('hearts', 1, true)])
+
+      // The toolbar's own button click is also a no-op mid-cascade.
+      const before = store.state
+      store.autoComplete()
+      await wrapper.vm.$nextTick()
+      expect(store.state).toBe(before)
+
+      await vi.advanceTimersByTimeAsync(2 * CARD_MOVE_ANIMATION_MS)
+      await wrapper.vm.$nextTick()
+
+      expect(store.isAnimating).toBe(false)
+      expect(store.state.foundations.hearts).toEqual([createCard('hearts', 1, true)])
+    })
+
+    it('shows the win banner only once the very last card has landed, not partway through', async () => {
+      const { wrapper, store } = mountBoard()
+      const descendingRanks = [...RANKS].reverse()
+      store.state = emptyState({
+        tableau: [
+          descendingRanks.map((rank) => createCard('clubs', rank, true)),
+          descendingRanks.map((rank) => createCard('diamonds', rank, true)),
+          descendingRanks.map((rank) => createCard('hearts', rank, true)),
+          descendingRanks.map((rank) => createCard('spades', rank, true)),
+          [],
+          [],
+          [],
+        ],
+      })
+      await wrapper.vm.$nextTick()
+
+      store.autoComplete()
+      await wrapper.vm.$nextTick()
+
+      // Partway through the 52-card cascade: not won yet, no banner.
+      await vi.advanceTimersByTimeAsync(10 * CARD_MOVE_ANIMATION_MS)
+      await wrapper.vm.$nextTick()
+      expect(store.isWon).toBe(false)
+      expect(wrapper.find('.win-banner').exists()).toBe(false)
+
+      await vi.advanceTimersByTimeAsync(52 * CARD_MOVE_ANIMATION_MS)
+      await wrapper.vm.$nextTick()
+
+      expect(store.isWon).toBe(true)
+      expect(wrapper.find('.win-banner').exists()).toBe(true)
     })
   })
 

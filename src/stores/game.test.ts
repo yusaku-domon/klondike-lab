@@ -329,18 +329,22 @@ describe('useGameStore', () => {
   describe('autoComplete', () => {
     const descendingRanks = [...RANKS].reverse()
 
-    it('is unavailable while the stock has cards or any tableau card is face down', () => {
+    it('is unavailable while any tableau card is face down, but not because of the stock/waste', () => {
       const store = useGameStore()
-      store.state = emptyState({ stock: [createCard('clubs', 1, false)] })
-      expect(store.canAutoComplete).toBe(false)
-
       store.state = emptyState({
         tableau: [[createCard('clubs', 5, false)], [], [], [], [], [], []],
       })
       expect(store.canAutoComplete).toBe(false)
+
+      store.state = emptyState({
+        stock: [createCard('clubs', 1, false)],
+        waste: [createCard('spades', 1, true)],
+        tableau: [[createCard('clubs', 5, true)], [], [], [], [], [], []],
+      })
+      expect(store.canAutoComplete).toBe(true)
     })
 
-    it('cascades every card to its foundation as a single undo step', () => {
+    it('cascades every card to its foundation, one at a time, as a single undo step', async () => {
       const store = useGameStore()
       store.state = emptyState({
         tableau: [
@@ -356,8 +360,19 @@ describe('useGameStore', () => {
       const original = store.state
       expect(store.canAutoComplete).toBe(true)
 
-      store.autoComplete()
+      const done = store.autoComplete()
 
+      // Every card must move (all 52), so the cascade isn't finished yet —
+      // and per the single-undo-step contract, nothing should be
+      // persisted/undo-able until the very last step lands.
+      expect(store.isAnimating).toBe(true)
+      expect(store.isWon).toBe(false)
+      expect(store.canUndo).toBe(false)
+
+      await vi.advanceTimersByTimeAsync(52 * CARD_MOVE_ANIMATION_MS)
+      await done
+
+      expect(store.isAnimating).toBe(false)
       expect(store.isWon).toBe(true)
       expect(store.state.foundations.hearts).toHaveLength(13)
 
@@ -367,15 +382,113 @@ describe('useGameStore', () => {
       expect(store.canUndo).toBe(false)
     })
 
-    it('is a no-op when unavailable', () => {
+    it('animates one card at a time, not the whole cascade at once', async () => {
       const store = useGameStore()
-      store.state = emptyState({ stock: [createCard('clubs', 1, false)] })
+      store.state = emptyState({
+        foundations: { clubs: [createCard('clubs', 4, true)], diamonds: [], hearts: [], spades: [] },
+        tableau: [
+          [createCard('clubs', 5, true)],
+          [createCard('hearts', 1, true)],
+          [],
+          [],
+          [],
+          [],
+          [],
+        ],
+      })
+
+      const done = store.autoComplete()
+      await vi.advanceTimersByTimeAsync(1)
+
+      // First tick: only clubs-5 has moved so far — hearts-1 is still
+      // sitting in its original column, not already relocated.
+      expect(store.state.foundations.clubs).toEqual([
+        createCard('clubs', 4, true),
+        createCard('clubs', 5, true),
+      ])
+      expect(store.state.tableau[1]).toEqual([createCard('hearts', 1, true)])
+
+      await vi.advanceTimersByTimeAsync(2 * CARD_MOVE_ANIMATION_MS)
+      await done
+
+      expect(store.state.foundations.hearts).toEqual([createCard('hearts', 1, true)])
+      expect(store.state.tableau[1]).toEqual([])
+    })
+
+    it('is a no-op when unavailable', async () => {
+      const store = useGameStore()
+      store.state = emptyState({
+        tableau: [[createCard('clubs', 5, false)], [], [], [], [], [], []],
+      })
       const before = store.state
 
-      store.autoComplete()
+      await store.autoComplete()
 
       expect(store.state).toBe(before)
       expect(store.canUndo).toBe(false)
+    })
+
+    it('ignores a second trigger while a cascade is already in progress', async () => {
+      const store = useGameStore()
+      store.state = emptyState({
+        foundations: { clubs: [createCard('clubs', 4, true)], diamonds: [], hearts: [], spades: [] },
+        tableau: [
+          [createCard('clubs', 5, true)],
+          [createCard('hearts', 1, true)],
+          [],
+          [],
+          [],
+          [],
+          [],
+        ],
+      })
+
+      const first = store.autoComplete()
+      const second = store.autoComplete() // re-entrant call: must be a no-op
+      await vi.advanceTimersByTimeAsync(2 * CARD_MOVE_ANIMATION_MS)
+      await first
+      await second
+
+      expect(store.state.foundations.clubs).toEqual([
+        createCard('clubs', 4, true),
+        createCard('clubs', 5, true),
+      ])
+      expect(store.state.foundations.hearts).toEqual([createCard('hearts', 1, true)])
+      // Exactly one undo step for the whole cascade — a re-entrant second
+      // run would have pushed a second (empty) history entry.
+      store.undo()
+      expect(store.canUndo).toBe(false)
+    })
+
+    it('abandons the cascade if a new game starts mid-sequence, without resurrecting stale cards', async () => {
+      const store = useGameStore()
+      store.state = emptyState({
+        foundations: { clubs: [createCard('clubs', 4, true)], diamonds: [], hearts: [], spades: [] },
+        tableau: [
+          [createCard('clubs', 5, true)],
+          [createCard('hearts', 1, true)],
+          [],
+          [],
+          [],
+          [],
+          [],
+        ],
+      })
+
+      const done = store.autoComplete()
+      await vi.advanceTimersByTimeAsync(1) // let the first step land
+
+      store.newGame(999)
+      const freshState = store.state
+      expect(freshState.seed).toBe(999)
+
+      await vi.advanceTimersByTimeAsync(2 * CARD_MOVE_ANIMATION_MS)
+      await done
+
+      // The abandoned cascade's remaining step (hearts-1) must never be
+      // applied on top of the fresh deal.
+      expect(store.state).toBe(freshState)
+      expect(store.isAnimating).toBe(false)
     })
   })
 
