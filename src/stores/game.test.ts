@@ -490,6 +490,39 @@ describe('useGameStore', () => {
       expect(store.state).toBe(freshState)
       expect(store.isAnimating).toBe(false)
     })
+
+    it('runs the full cascade through the store when the stock and waste both still hold cards', async () => {
+      // Previously unreachable through the store: canAutoComplete used to
+      // require an empty stock, so this path (a real draw happening mid
+      // cascade) never ran through applyIfChanged's animation/undo/persist
+      // wiring until the activation condition was relaxed to tableau-only.
+      const store = useGameStore()
+      store.state = emptyState({
+        foundations: { spades: ([1, 2, 3] as const).map((r) => createCard('spades', r, true)), clubs: [], diamonds: [], hearts: [] },
+        tableau: [[createCard('spades', 4, true)], [], [], [], [], [], []],
+        waste: [createCard('spades', 6, true)],
+        stock: [createCard('spades', 5, false)],
+      })
+      const original = store.state
+      expect(store.canAutoComplete).toBe(true)
+
+      const done = store.autoComplete()
+      await vi.advanceTimersByTimeAsync(10 * CARD_MOVE_ANIMATION_MS)
+      await done
+
+      expect(store.state.foundations.spades).toEqual(
+        ([1, 2, 3, 4, 5, 6] as const).map((r) => createCard('spades', r, true)),
+      )
+      expect(store.state.stock).toEqual([])
+      expect(store.state.waste).toEqual([])
+      expect(store.isAnimating).toBe(false)
+
+      // Still a single undo step for the whole cascade, unchanged by
+      // having drawn from the stock partway through.
+      store.undo()
+      expect(store.state).toEqual(original)
+      expect(store.canUndo).toBe(false)
+    })
   })
 
   describe('isAnimating (UI-facing move-animation lock)', () => {

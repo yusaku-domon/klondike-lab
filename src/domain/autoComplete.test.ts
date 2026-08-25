@@ -147,6 +147,79 @@ describe('autoCompleteAll', () => {
     expect(result.foundations.hearts).toEqual([])
     expect(result.stock.length + result.waste.length).toBe(2)
   })
+
+  it('gives up safely (no infinite loop) with a larger, genuinely unsolvable stock/waste', () => {
+    // 8 face-up Kings/Queens, none of which can ever reach an empty
+    // foundation (no aces present at all) — a full lap through a bigger
+    // pile than the other give-up tests exercise, still terminating.
+    const stuckCards = [13, 13, 13, 13, 12, 12, 12, 12] as const
+    const suits = ['spades', 'hearts', 'clubs', 'diamonds', 'spades', 'hearts', 'clubs', 'diamonds'] as const
+    const state = emptyState({
+      waste: stuckCards.map((rank, i) => createCard(suits[i]!, rank, true)),
+    })
+
+    const result = autoCompleteAll(state)
+
+    expect(Object.values(result.foundations).every((pile) => pile.length === 0)).toBe(true)
+    expect(result.stock.length + result.waste.length).toBe(8)
+  })
+
+  it('draws face-down stock cards (flipping them face up) to continue a run already in progress', () => {
+    // Previously unreachable via auto-complete: the stock always started
+    // empty (the old activation condition required it). Now the stock can
+    // hold face-down cards from the very start.
+    const state = emptyState({
+      foundations: { hearts: ([1, 2, 3, 4, 5] as const).map((r) => createCard('hearts', r, true)), clubs: [], diamonds: [], spades: [] },
+      tableau: [[createCard('hearts', 6, true)], [], [], [], [], [], []],
+      // hearts-7 is drawn first (stock.pop() takes the last element).
+      stock: [createCard('hearts', 8, false), createCard('hearts', 7, false)],
+    })
+
+    const result = autoCompleteAll(state)
+
+    expect(result.foundations.hearts).toEqual(([1, 2, 3, 4, 5, 6, 7, 8] as const).map((r) => createCard('hearts', r, true)))
+    expect(result.stock).toEqual([])
+    expect(result.waste).toEqual([])
+  })
+
+  it('draws through both a non-empty stock and a non-empty waste together to keep a run going', () => {
+    const state = emptyState({
+      foundations: { spades: ([1, 2, 3] as const).map((r) => createCard('spades', r, true)), clubs: [], diamonds: [], hearts: [] },
+      tableau: [[createCard('spades', 4, true)], [], [], [], [], [], []],
+      waste: [createCard('spades', 6, true)], // not yet eligible — spades-5 is still missing
+      stock: [createCard('spades', 5, false)],
+    })
+
+    const result = autoCompleteAll(state)
+
+    expect(result.foundations.spades).toEqual(([1, 2, 3, 4, 5, 6] as const).map((r) => createCard('spades', r, true)))
+    expect(result.stock).toEqual([])
+    expect(result.waste).toEqual([])
+  })
+
+  it('finishes a game with foundations already partway complete, mixing tableau, waste, and stock cards', () => {
+    const state = emptyState({
+      foundations: {
+        clubs: ([1, 2, 3] as const).map((r) => createCard('clubs', r, true)),
+        diamonds: [createCard('diamonds', 1, true)],
+        hearts: [],
+        spades: ([1, 2, 3, 4, 5] as const).map((r) => createCard('spades', r, true)),
+      },
+      tableau: [[createCard('clubs', 4, true)], [createCard('diamonds', 2, true)], [], [], [], [], []],
+      waste: [createCard('hearts', 1, true)],
+      stock: [createCard('spades', 6, false)],
+    })
+
+    const result = autoCompleteAll(state)
+
+    expect(result.foundations.clubs).toHaveLength(4)
+    expect(result.foundations.diamonds).toHaveLength(2)
+    expect(result.foundations.hearts).toEqual([createCard('hearts', 1, true)])
+    expect(result.foundations.spades).toHaveLength(6)
+    expect(result.stock).toEqual([])
+    expect(result.waste).toEqual([])
+    expect(result.tableau.every((column) => column.length === 0)).toBe(true)
+  })
 })
 
 describe('autoCompleteSteps', () => {

@@ -4,8 +4,9 @@ import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CARD_MOVE_ANIMATION_MS } from '../animationTiming'
 import { emptyState } from '../testFixtures'
-import { createCard, RANKS } from '../domain/cards'
+import { createCard, RANKS, type Card } from '../domain/cards'
 import type { GameState } from '../domain/deal'
+import { isCompleteUniqueDeck } from '../domain/invariants'
 import { useGameStore } from '../stores/game'
 import { useSettingsStore } from '../stores/settings'
 import GameBoard from './GameBoard.vue'
@@ -430,6 +431,78 @@ describe('GameBoard', () => {
 
       expect(store.isWon).toBe(true)
       expect(wrapper.find('.win-banner').exists()).toBe(true)
+    })
+
+    it('completes a large cascade that also has to draw and flip an entire suit out of the stock', async () => {
+      // Previously only exercised at the pure-domain level and, inconclusively,
+      // in a live browser (real per-step rendering overhead in that specific
+      // automation environment made a 65-step run too slow to watch to
+      // completion there). This drives the exact same scenario through the
+      // real component/store stack — GameBoard's animation watcher,
+      // CardAnimationLayer, the win-banner template — with fake timers, so
+      // it's exact and instant regardless of real-world rendering speed.
+      const descendingRanks = [...RANKS].reverse()
+      const { wrapper, store } = mountBoard()
+      store.state = emptyState({
+        tableau: [
+          descendingRanks.map((rank) => createCard('clubs', rank, true)),
+          descendingRanks.map((rank) => createCard('diamonds', rank, true)),
+          descendingRanks.map((rank) => createCard('hearts', rank, true)),
+          [],
+          [],
+          [],
+          [],
+        ],
+        // stock.pop() draws the last element first, so spades-1 is drawn
+        // before spades-2, ..., before spades-13 — a clean single pass with
+        // no recycling needed, mirroring the earlier live-browser scenario.
+        stock: descendingRanks.map((rank) => createCard('spades', rank, false)),
+      })
+      await wrapper.vm.$nextTick()
+      expect(store.canAutoComplete).toBe(true)
+
+      function allCards(state: GameState): Card[] {
+        return [
+          ...state.stock,
+          ...state.waste,
+          ...state.tableau.flat(),
+          ...Object.values(state.foundations).flat(),
+        ]
+      }
+
+      const done = store.autoComplete()
+      await wrapper.vm.$nextTick()
+
+      // Partway through (tableau alone is 39 moves): not won, no banner,
+      // and the deck is still exactly 52 unique cards — nothing lost or
+      // duplicated mid-cascade.
+      await vi.advanceTimersByTimeAsync(20 * CARD_MOVE_ANIMATION_MS)
+      await wrapper.vm.$nextTick()
+      expect(store.isWon).toBe(false)
+      expect(wrapper.find('.win-banner').exists()).toBe(false)
+      expect(isCompleteUniqueDeck(allCards(store.state))).toBe(true)
+
+      // Still not done: the stock hasn't been touched yet at this point.
+      await vi.advanceTimersByTimeAsync(40 * CARD_MOVE_ANIMATION_MS)
+      await wrapper.vm.$nextTick()
+      expect(store.isWon).toBe(false)
+      expect(wrapper.find('.win-banner').exists()).toBe(false)
+
+      // 39 tableau moves + 13 draws + 13 foundation placements = 65 steps.
+      await vi.advanceTimersByTimeAsync(65 * CARD_MOVE_ANIMATION_MS)
+      await done
+      await wrapper.vm.$nextTick()
+
+      expect(store.isWon).toBe(true)
+      expect(wrapper.find('.win-banner').exists()).toBe(true)
+      expect(store.isAnimating).toBe(false)
+      expect(store.state.stock).toEqual([])
+      expect(store.state.waste).toEqual([])
+      expect(store.state.tableau.every((column) => column.length === 0)).toBe(true)
+      for (const suit of ['clubs', 'diamonds', 'hearts', 'spades'] as const) {
+        expect(store.state.foundations[suit]).toHaveLength(13)
+      }
+      expect(isCompleteUniqueDeck(allCards(store.state))).toBe(true)
     })
   })
 
