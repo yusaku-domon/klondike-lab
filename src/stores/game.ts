@@ -81,6 +81,14 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
+  function stopTimer() {
+    if (timerHandle !== null) {
+      clearInterval(timerHandle)
+      timerHandle = null
+      ticksSinceSave = 0
+    }
+  }
+
   function syncTimer() {
     // Don't start counting while the player is just looking at a freshly
     // dealt board — the clock begins the moment the first card actually
@@ -88,10 +96,8 @@ export const useGameStore = defineStore('game', () => {
     const shouldRun = state.value.status === 'playing' && state.value.moveCount > 0
     if (shouldRun && timerHandle === null) {
       timerHandle = setInterval(tick, 1000)
-    } else if (!shouldRun && timerHandle !== null) {
-      clearInterval(timerHandle)
-      timerHandle = null
-      ticksSinceSave = 0
+    } else if (!shouldRun) {
+      stopTimer()
     }
   }
 
@@ -155,6 +161,14 @@ export const useGameStore = defineStore('game', () => {
       animationTimer = null
     }
     isAnimatingRef.value = true
+
+    // The cascade's own pacing (CARD_MOVE_ANIMATION_MS per step) is purely
+    // a display mechanism, not something the player spent time deciding —
+    // stop the elapsed-time clock for its duration so it doesn't count
+    // toward play time. No catch-up afterward: the skipped seconds are
+    // simply never counted, and syncTimer() below resumes the normal
+    // one-tick-per-real-second pace once the cascade lands.
+    stopTimer()
 
     for (const step of steps) {
       // A new game started mid-cascade (gameEpoch only changes there):

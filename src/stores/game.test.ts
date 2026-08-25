@@ -324,6 +324,88 @@ describe('useGameStore', () => {
       vi.advanceTimersByTime(1000)
       expect(readPersistedState()?.elapsedSeconds).toBe(10)
     })
+
+    it('freezes the elapsed-time clock for the whole auto-complete cascade, then resumes afterward', async () => {
+      const store = useGameStore()
+      store.state = emptyState({
+        foundations: {
+          clubs: [createCard('clubs', 4, true)],
+          diamonds: [createCard('diamonds', 2, true)],
+          hearts: [],
+          spades: [createCard('spades', 6, true)],
+        },
+        tableau: [
+          [createCard('clubs', 5, true)],
+          [createCard('diamonds', 3, true)],
+          [createCard('hearts', 1, true)],
+          [createCard('spades', 7, true)],
+          [],
+          [],
+          [],
+        ],
+        moveCount: 1,
+      })
+      // Directly assigning store.state (as opposed to going through a real
+      // action) bypasses syncTimer()'s re-evaluation — pause/resume forces
+      // it to notice moveCount is already > 0 and actually start ticking.
+      store.pause()
+      store.resume()
+      // Get the clock ticking with a nonzero baseline before the cascade.
+      vi.advanceTimersByTime(3000)
+      const elapsedBefore = store.state.elapsedSeconds
+      expect(elapsedBefore).toBe(3)
+
+      const done = store.autoComplete()
+      // 4 steps * 280ms = 1120ms — comfortably past a real 1-second tick
+      // boundary, so if the clock weren't actually stopped it would have
+      // ticked at least once during this window.
+      await vi.advanceTimersByTimeAsync(4 * CARD_MOVE_ANIMATION_MS)
+      await done
+
+      // Scoring is untouched by the timer change: all 4 moves still score
+      // normally (tableau → foundation, +10 each) even while the clock is
+      // frozen.
+      expect(store.state.score).toBe(40)
+      expect(store.state.elapsedSeconds).toBe(elapsedBefore)
+
+      // Resumes ticking at the normal pace afterward, with no catch-up for
+      // the frozen duration.
+      vi.advanceTimersByTime(2000)
+      expect(store.state.elapsedSeconds).toBe(elapsedBefore + 2)
+    })
+
+    it('keeps the elapsed-time clock stopped for good if the cascade wins the game', async () => {
+      const descendingRanks = [...RANKS].reverse()
+      const store = useGameStore()
+      store.state = emptyState({
+        tableau: [
+          descendingRanks.map((rank) => createCard('clubs', rank, true)),
+          descendingRanks.map((rank) => createCard('diamonds', rank, true)),
+          descendingRanks.map((rank) => createCard('hearts', rank, true)),
+          descendingRanks.map((rank) => createCard('spades', rank, true)),
+          [],
+          [],
+          [],
+        ],
+        moveCount: 1,
+      })
+      store.pause()
+      store.resume()
+      vi.advanceTimersByTime(5000)
+      const elapsedBefore = store.state.elapsedSeconds
+      expect(elapsedBefore).toBe(5)
+
+      const done = store.autoComplete()
+      await vi.advanceTimersByTimeAsync(52 * CARD_MOVE_ANIMATION_MS)
+      await done
+
+      expect(store.isWon).toBe(true)
+      expect(store.state.elapsedSeconds).toBe(elapsedBefore)
+
+      // Stays stopped after a win, same as a manual winning move already does.
+      vi.advanceTimersByTime(5000)
+      expect(store.state.elapsedSeconds).toBe(elapsedBefore)
+    })
   })
 
   describe('autoComplete', () => {
