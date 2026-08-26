@@ -96,7 +96,7 @@ describe('GameBoard', () => {
     expect(store.state.moveCount).toBe(moveCountAfterWin)
   })
 
-  it('hides the board and blocks card operations while paused', async () => {
+  it('keeps the board visible (grayed out) and still blocks card operations while paused', async () => {
     const { wrapper, store } = mountBoard()
     store.state = emptyState({ stock: [createCard('spades', 13, false)] })
     await wrapper.vm.$nextTick()
@@ -104,15 +104,20 @@ describe('GameBoard', () => {
     store.pause()
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.find('[data-testid="stock-pile"]').exists()).toBe(false)
+    // The board the player paused on stays visible underneath the overlay...
+    expect(wrapper.find('[data-testid="stock-pile"]').exists()).toBe(true)
     expect(wrapper.find('.pause-overlay').exists()).toBe(true)
 
-    // Even a direct store call is blocked by the board's own guard for regular clicks;
-    // simulate the only click surface available while paused: the resume button.
+    // ...but clicking it still has no effect while paused.
+    await wrapper.get('[data-testid="stock-pile"]').trigger('click')
+    expect(store.state.stock).toHaveLength(1)
+
+    // The only working click surface while paused is the resume button.
     await wrapper.get('.pause-overlay button').trigger('click')
     await wrapper.vm.$nextTick()
 
     expect(store.state.status).toBe('playing')
+    expect(wrapper.find('.pause-overlay').exists()).toBe(false)
     expect(wrapper.find('[data-testid="stock-pile"]').exists()).toBe(true)
   })
 

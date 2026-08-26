@@ -279,68 +279,71 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
 
 <template>
   <div ref="boardEl" class="game-board">
-    <template v-if="store.state.status !== 'paused'">
-      <div class="top-row">
-        <div ref="stockSlotEl" class="pile-slot">
-          <StockPile
-            :stock-count="store.state.stock.length"
-            :waste-count="store.state.waste.length"
-            @click="handleClick({ type: 'stock' })"
-          />
-        </div>
-        <div ref="wasteSlotEl" class="pile-slot">
-          <WastePile
-            :waste="store.state.waste"
-            :selected="isSelected({ type: 'waste' })"
-            @click="handleClick({ type: 'waste' })"
-          />
-        </div>
-        <div class="spacer" />
-        <div
-          v-for="suit in SUITS"
-          :key="suit"
-          class="pile-slot"
-          :ref="(el) => setFoundationSlotEl(suit, el as Element | null)"
-        >
-          <FoundationPile
-            :suit="suit"
-            :pile="store.state.foundations[suit]"
-            :selected="isSelected({ type: 'foundation', suit })"
-            :highlight="foundationHighlight(suit)"
-            @click="handleClick({ type: 'foundation', suit })"
-          />
-        </div>
+    <div class="top-row">
+      <div ref="stockSlotEl" class="pile-slot">
+        <StockPile
+          :stock-count="store.state.stock.length"
+          :waste-count="store.state.waste.length"
+          @click="handleClick({ type: 'stock' })"
+        />
       </div>
-
-      <div class="tableau-row">
-        <div
-          v-for="(column, columnIndex) in store.state.tableau"
-          :key="columnIndex"
-          class="pile-slot"
-          :ref="(el) => setTableauSlotEl(columnIndex, el as Element | null)"
-        >
-          <TableauColumn
-            :column="column"
-            :column-index="columnIndex"
-            :selected-from-index="tableauSelectedFromIndex(columnIndex)"
-            :highlight="tableauHighlight(columnIndex)"
-            @select="(cardIndex) => handleClick({ type: 'tableau', column: columnIndex, cardIndex })"
-          />
-        </div>
+      <div ref="wasteSlotEl" class="pile-slot">
+        <WastePile
+          :waste="store.state.waste"
+          :selected="isSelected({ type: 'waste' })"
+          @click="handleClick({ type: 'waste' })"
+        />
       </div>
+      <div class="spacer" />
+      <div
+        v-for="suit in SUITS"
+        :key="suit"
+        class="pile-slot"
+        :ref="(el) => setFoundationSlotEl(suit, el as Element | null)"
+      >
+        <FoundationPile
+          :suit="suit"
+          :pile="store.state.foundations[suit]"
+          :selected="isSelected({ type: 'foundation', suit })"
+          :highlight="foundationHighlight(suit)"
+          @click="handleClick({ type: 'foundation', suit })"
+        />
+      </div>
+    </div>
 
-      <CardAnimationLayer
-        v-if="slotLayout"
-        :state="store.state"
-        :positions="cardPositions"
-        :selected-card-ids="selectedCardIds"
-        :animating-card-ids="animatingCardIds"
-        :destination-highlights="destinationCardHighlights"
-        :animation-duration-ms="cardAnimationDurationMs"
-      />
-    </template>
+    <div class="tableau-row">
+      <div
+        v-for="(column, columnIndex) in store.state.tableau"
+        :key="columnIndex"
+        class="pile-slot"
+        :ref="(el) => setTableauSlotEl(columnIndex, el as Element | null)"
+      >
+        <TableauColumn
+          :column="column"
+          :column-index="columnIndex"
+          :selected-from-index="tableauSelectedFromIndex(columnIndex)"
+          :highlight="tableauHighlight(columnIndex)"
+          @select="(cardIndex) => handleClick({ type: 'tableau', column: columnIndex, cardIndex })"
+        />
+      </div>
+    </div>
 
-    <div v-else class="pause-overlay" role="status">
+    <CardAnimationLayer
+      v-if="slotLayout"
+      :state="store.state"
+      :positions="cardPositions"
+      :selected-card-ids="selectedCardIds"
+      :animating-card-ids="animatingCardIds"
+      :destination-highlights="destinationCardHighlights"
+      :animation-duration-ms="cardAnimationDurationMs"
+    />
+
+    <!-- Grays out the board in place rather than replacing it, so the
+         player sees exactly the layout they paused on — matching
+         .win-banner/.auto-complete-prompt's same overlay-on-top pattern
+         below, never shown together since 'paused' is mutually exclusive
+         with 'won' and with isPlayable. -->
+    <div v-if="store.state.status === 'paused'" class="pause-overlay" role="status">
       <p class="pause-title">一時停止中</p>
       <button type="button" @click="store.resume()">再開</button>
     </div>
@@ -420,13 +423,18 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
 }
 
 .pause-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 1rem;
-  min-height: 20rem;
+  background: rgba(0, 0, 0, 0.75);
   color: #fff;
+  text-align: center;
+  padding: 1rem;
 }
 
 .pause-title {
