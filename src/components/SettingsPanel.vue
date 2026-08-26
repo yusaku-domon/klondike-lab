@@ -43,11 +43,11 @@ function toggleOpen() {
   position: absolute;
   top: calc(100% + 0.5rem);
   right: 0;
-  z-index: 3;
+  z-index: var(--z-dropdown);
   min-width: 12rem;
   padding: 0.75rem 1rem;
-  background: #0f7a44;
-  border: 1px solid #7fbf9e;
+  background: var(--color-felt);
+  border: 1px solid var(--color-outline);
   border-radius: 0.4rem;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
 }

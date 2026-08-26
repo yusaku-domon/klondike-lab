@@ -109,8 +109,8 @@ const formattedElapsed = computed(() => {
   align-items: center;
   gap: 1.5rem;
   padding: 0.5rem 1rem;
-  background: #0b3d24;
-  color: #fff;
+  background: var(--color-felt-dark);
+  color: var(--color-text-on-dark);
 }
 
 .actions {

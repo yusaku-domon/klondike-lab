@@ -379,7 +379,7 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
   flex-direction: column;
   gap: 2rem;
   padding: 1.5rem;
-  background: #0f7a44;
+  background: var(--color-felt);
   box-sizing: border-box;
 }
 
@@ -404,14 +404,14 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
 .win-banner {
   position: absolute;
   inset: 0;
-  z-index: 2;
+  z-index: var(--z-overlay);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
   background: rgba(0, 0, 0, 0.75);
-  color: #fff;
+  color: var(--color-text-on-dark);
   text-align: center;
   padding: 1rem;
 }
@@ -425,14 +425,14 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
 .pause-overlay {
   position: absolute;
   inset: 0;
-  z-index: 2;
+  z-index: var(--z-overlay);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 1rem;
   background: rgba(0, 0, 0, 0.75);
-  color: #fff;
+  color: var(--color-text-on-dark);
   text-align: center;
   padding: 1rem;
 }
@@ -446,14 +446,14 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
 .auto-complete-prompt {
   position: absolute;
   inset: 0;
-  z-index: 2;
+  z-index: var(--z-overlay);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 1.25rem;
   background: rgba(0, 0, 0, 0.75);
-  color: #fff;
+  color: var(--color-text-on-dark);
   text-align: center;
   padding: 1rem;
 }

@@ -1,4 +1,45 @@
 /*
+ * Shared design tokens — the single source of truth for values otherwise
+ * repeated (and liable to drift) across every component's own <style
+ * scoped> block. Values are copied as-is from the pre-tokenization
+ * styles, so introducing this file changes no rendered output by itself;
+ * it only gives a future palette/size/layering change one place to edit
+ * instead of many.
+ */
+:root {
+  --color-felt: #0f7a44;
+  --color-felt-dark: #0b3d24;
+  --color-outline: #7fbf9e;
+  --color-card-back-a: #2a5fa5;
+  --color-card-back-b: #1c4780;
+  --color-selected: #ffb300;
+  --color-suit-red: #b00020;
+  --color-suit-black: #111;
+  --color-card-border: #333;
+  --color-empty-pile-icon: #cfe9db;
+  --color-text-on-dark: #fff;
+
+  --card-width: 4.5rem;
+  --card-height: 6.5rem;
+
+  /* Stacking for whole overlay layers (win banner, prompts, the pause
+     overlay, and the card-animation layer beneath them) — distinct from
+     CardAnimationLayer's own per-card ANIMATING_Z_OFFSET, which operates
+     entirely within --z-card-layer's own stacking context. */
+  --z-card-layer: 1;
+  --z-overlay: 2;
+  --z-dropdown: 3;
+
+  --card-back-pattern: repeating-linear-gradient(
+    45deg,
+    var(--color-card-back-a),
+    var(--color-card-back-a) 4px,
+    var(--color-card-back-b) 4px,
+    var(--color-card-back-b) 8px
+  );
+}
+
+/*
  * Without this, the browser's default 8px body margin pushes the app's
  * height:100% chain past the viewport, which forces a scrollbar even
  * though there's nothing meaningful to scroll to.

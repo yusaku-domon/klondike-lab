@@ -15,6 +15,23 @@ export const SUITS: readonly Suit[] = ['clubs', 'diamonds', 'hearts', 'spades']
 
 export const RANKS: readonly Rank[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
 
+// Display strings shared by every component that renders a suit (PlayingCard,
+// FoundationPile), so the symbol/label for a given suit can't drift between
+// them.
+export const SUIT_SYMBOLS: Record<Suit, string> = {
+  clubs: '♣',
+  diamonds: '♦',
+  hearts: '♥',
+  spades: '♠',
+}
+
+export const SUIT_NAMES: Record<Suit, string> = {
+  clubs: 'クラブ',
+  diamonds: 'ダイヤ',
+  hearts: 'ハート',
+  spades: 'スペード',
+}
+
 export function getCardColor(suit: Suit): CardColor {
   return suit === 'diamonds' || suit === 'hearts' ? 'red' : 'black'
 }

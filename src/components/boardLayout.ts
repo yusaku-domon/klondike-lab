@@ -1,10 +1,13 @@
 import { SUITS, type Suit } from '../domain/cards'
 import type { GameState } from '../domain/deal'
 
-// TableauColumn's own internal cascade offset (its `top: index * 1.6rem`).
-// This is the one piece of layout math that's safe to hardcode: unlike the
-// top-row's pile positions (which move whenever the flexible spacer resizes
-// with the viewport), this is a fixed, internal detail of a single component.
+// TableauColumn's own internal cascade offset — imported by TableauColumn
+// itself for its `top: index * TABLEAU_STACK_OFFSET_REM rem` styling, and
+// by GameBoard for the matching CardAnimationLayer position math below, so
+// the two can never drift apart. This is the one piece of layout math
+// that's safe to hardcode: unlike the top-row's pile positions (which move
+// whenever the flexible spacer resizes with the viewport), this is a
+// fixed, internal detail of a single component.
 export const TABLEAU_STACK_OFFSET_REM = 1.6
 
 export interface SlotPosition {

@@ -26,10 +26,10 @@ const ariaLabel = computed(() => {
 
 <style scoped>
 .stock-pile {
-  width: 4.5rem;
-  height: 6.5rem;
+  width: var(--card-width);
+  height: var(--card-height);
   border-radius: 0.4rem;
-  border: 2px dashed #7fbf9e;
+  border: 2px dashed var(--color-outline);
   background: transparent;
   display: flex;
   align-items: center;
@@ -42,12 +42,12 @@ const ariaLabel = computed(() => {
   width: 100%;
   height: 100%;
   border-radius: 0.3rem;
-  background: repeating-linear-gradient(45deg, #2a5fa5, #2a5fa5 4px, #1c4780 4px, #1c4780 8px);
+  background: var(--card-back-pattern);
   display: block;
 }
 
 .recycle-icon {
-  color: #fff;
+  color: var(--color-text-on-dark);
   font-size: 1.8rem;
 }
 </style>

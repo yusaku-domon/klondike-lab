@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { getCardColor, type Card, type Suit } from '../domain/cards'
+import { getCardColor, SUIT_NAMES, SUIT_SYMBOLS, type Card } from '../domain/cards'
 
 const props = withDefaults(
   defineProps<{
@@ -26,8 +26,6 @@ const props = withDefaults(
 defineEmits<{ select: [] }>()
 
 const RANK_LABELS: Record<number, string> = { 1: 'A', 11: 'J', 12: 'Q', 13: 'K' }
-const SUIT_SYMBOLS: Record<Suit, string> = { clubs: '♣', diamonds: '♦', hearts: '♥', spades: '♠' }
-const SUIT_NAMES: Record<Suit, string> = { clubs: 'クラブ', diamonds: 'ダイヤ', hearts: 'ハート', spades: 'スペード' }
 
 const rankLabel = computed(() => RANK_LABELS[props.card.rank] ?? String(props.card.rank))
 const suitSymbol = computed(() => SUIT_SYMBOLS[props.card.suit])
@@ -61,11 +59,11 @@ const ariaLabel = computed(() => {
 
 <style scoped>
 .playing-card {
-  width: 4.5rem;
-  height: 6.5rem;
+  width: var(--card-width);
+  height: var(--card-height);
   border-radius: 0.4rem;
-  border: 1px solid #333;
-  background: #fff;
+  border: 1px solid var(--color-card-border);
+  background: var(--color-text-on-dark);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -77,15 +75,15 @@ const ariaLabel = computed(() => {
 }
 
 .playing-card.face-down {
-  background: repeating-linear-gradient(45deg, #2a5fa5, #2a5fa5 4px, #1c4780 4px, #1c4780 8px);
+  background: var(--card-back-pattern);
 }
 
 .playing-card.red {
-  color: #b00020;
+  color: var(--color-suit-red);
 }
 
 .playing-card.black {
-  color: #111;
+  color: var(--color-suit-black);
 }
 
 .playing-card.interactive {
@@ -93,7 +91,7 @@ const ariaLabel = computed(() => {
 }
 
 .playing-card.selected {
-  outline: 3px solid #ffb300;
+  outline: 3px solid var(--color-selected);
   outline-offset: 2px;
   transform: translateY(-6px);
 }

@@ -30,10 +30,10 @@ const topCard = computed<Card | null>(() => props.waste[props.waste.length - 1] 
 
 <style scoped>
 .empty-pile {
-  width: 4.5rem;
-  height: 6.5rem;
+  width: var(--card-width);
+  height: var(--card-height);
   border-radius: 0.4rem;
-  border: 2px dashed #7fbf9e;
+  border: 2px dashed var(--color-outline);
   background: transparent;
   padding: 0;
 }

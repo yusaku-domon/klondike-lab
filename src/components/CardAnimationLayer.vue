@@ -95,7 +95,7 @@ const cardsById = computed<Map<string, Card>>(() => {
    * bottom of a pile (z-index > 0) would paint above an overlay that only
    * has the default z-index: auto.
    */
-  z-index: 1;
+  z-index: var(--z-card-layer);
 }
 
 .card-wrapper {

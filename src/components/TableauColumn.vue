@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Card } from '../domain/cards'
-import type { HighlightLevel } from './boardLayout'
+import { TABLEAU_STACK_OFFSET_REM, type HighlightLevel } from './boardLayout'
 import PlayingCard from './PlayingCard.vue'
 
 const props = withDefaults(
@@ -44,7 +44,7 @@ function isSelected(index: number): boolean {
       v-for="(card, index) in column"
       :key="card.id"
       class="card-slot"
-      :style="{ top: `${index * 1.6}rem` }"
+      :style="{ top: `${index * TABLEAU_STACK_OFFSET_REM}rem` }"
     >
       <PlayingCard
         :card="card"
@@ -60,8 +60,8 @@ function isSelected(index: number): boolean {
 <style scoped>
 .tableau-column {
   position: relative;
-  width: 4.5rem;
-  min-height: 6.5rem;
+  width: var(--card-width);
+  min-height: var(--card-height);
 }
 
 /* Move-navigation hint for an empty column's own frame (see the highlight
@@ -75,10 +75,10 @@ function isSelected(index: number): boolean {
 }
 
 .empty-column {
-  width: 4.5rem;
-  height: 6.5rem;
+  width: var(--card-width);
+  height: var(--card-height);
   border-radius: 0.4rem;
-  border: 2px dashed #7fbf9e;
+  border: 2px dashed var(--color-outline);
   background: transparent;
   padding: 0;
 }

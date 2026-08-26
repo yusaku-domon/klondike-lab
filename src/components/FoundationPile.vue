@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { Card, Suit } from '../domain/cards'
+import { SUIT_NAMES, SUIT_SYMBOLS, type Card, type Suit } from '../domain/cards'
 import type { HighlightLevel } from './boardLayout'
 import PlayingCard from './PlayingCard.vue'
 
@@ -19,9 +19,6 @@ const props = withDefaults(
   { highlight: 'none' },
 )
 defineEmits<{ click: [] }>()
-
-const SUIT_SYMBOLS: Record<Suit, string> = { clubs: '♣', diamonds: '♦', hearts: '♥', spades: '♠' }
-const SUIT_NAMES: Record<Suit, string> = { clubs: 'クラブ', diamonds: 'ダイヤ', hearts: 'ハート', spades: 'スペード' }
 
 const topCard = computed<Card | null>(() => props.pile[props.pile.length - 1] ?? null)
 const suitSymbol = computed(() => SUIT_SYMBOLS[props.suit])
@@ -52,12 +49,12 @@ const highlightClass = computed(() => (props.highlight !== 'none' ? `nav-${props
 
 <style scoped>
 .empty-pile {
-  width: 4.5rem;
-  height: 6.5rem;
+  width: var(--card-width);
+  height: var(--card-height);
   border-radius: 0.4rem;
-  border: 2px dashed #7fbf9e;
+  border: 2px dashed var(--color-outline);
   background: transparent;
-  color: #cfe9db;
+  color: var(--color-empty-pile-icon);
   font-size: 1.8rem;
   padding: 0;
 }
