@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { CARD_MOVE_ANIMATION_MS } from '../animationTiming'
+import { AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS, CARD_MOVE_ANIMATION_MS } from '../animationTiming'
 import { emptyState } from '../testFixtures'
 import { createCard, RANKS } from '../domain/cards'
 import { createInitialGameState, type GameState } from '../domain/deal'
@@ -356,10 +356,10 @@ describe('useGameStore', () => {
       expect(elapsedBefore).toBe(3)
 
       const done = store.autoComplete()
-      // 4 steps * 280ms = 1120ms — comfortably past a real 1-second tick
-      // boundary, so if the clock weren't actually stopped it would have
-      // ticked at least once during this window.
-      await vi.advanceTimersByTimeAsync(4 * CARD_MOVE_ANIMATION_MS)
+      // 4 steps at the cascade's own (faster) pace — comfortably past a
+      // real 1-second tick boundary, so if the clock weren't actually
+      // stopped it would have ticked at least once during this window.
+      await vi.advanceTimersByTimeAsync(4 * AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS)
       await done
 
       // Scoring is untouched by the timer change: all 4 moves still score
@@ -396,7 +396,7 @@ describe('useGameStore', () => {
       expect(elapsedBefore).toBe(5)
 
       const done = store.autoComplete()
-      await vi.advanceTimersByTimeAsync(52 * CARD_MOVE_ANIMATION_MS)
+      await vi.advanceTimersByTimeAsync(52 * AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS)
       await done
 
       expect(store.isWon).toBe(true)
@@ -405,6 +405,52 @@ describe('useGameStore', () => {
       // Stays stopped after a win, same as a manual winning move already does.
       vi.advanceTimersByTime(5000)
       expect(store.state.elapsedSeconds).toBe(elapsedBefore)
+    })
+
+    it('does not resume the elapsed-time clock if the player pauses and resumes mid-cascade', async () => {
+      const store = useGameStore()
+      store.state = emptyState({
+        foundations: { clubs: [createCard('clubs', 4, true)], diamonds: [], hearts: [], spades: [] },
+        tableau: [
+          [createCard('clubs', 5, true)],
+          [createCard('hearts', 1, true)],
+          [],
+          [],
+          [],
+          [],
+          [],
+        ],
+        moveCount: 1,
+      })
+      store.pause()
+      store.resume()
+      vi.advanceTimersByTime(3000)
+      const elapsedBefore = store.state.elapsedSeconds
+      expect(elapsedBefore).toBe(3)
+
+      const done = store.autoComplete()
+      await vi.advanceTimersByTimeAsync(1) // let step 1 (clubs-5) land
+
+      // Pausing mid-cascade, then immediately resuming, must not let
+      // resume()'s own syncTimer() call restart the clock while the
+      // cascade still has steps left to play — only the cascade's own
+      // final syncTimer() call, once it's genuinely finished, may do that.
+      store.pause()
+      await vi.advanceTimersByTimeAsync(2 * AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS)
+      store.resume()
+      await vi.advanceTimersByTimeAsync(1)
+      expect(store.state.elapsedSeconds).toBe(elapsedBefore)
+
+      await vi.advanceTimersByTimeAsync(2 * AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS)
+      await done
+
+      expect(store.state.foundations.hearts).toEqual([createCard('hearts', 1, true)])
+      expect(store.state.elapsedSeconds).toBe(elapsedBefore)
+
+      // Resumes ticking at the normal pace now that the cascade is
+      // genuinely done, with no catch-up for the paused duration.
+      vi.advanceTimersByTime(2000)
+      expect(store.state.elapsedSeconds).toBe(elapsedBefore + 2)
     })
   })
 
@@ -451,7 +497,7 @@ describe('useGameStore', () => {
       expect(store.isWon).toBe(false)
       expect(store.canUndo).toBe(false)
 
-      await vi.advanceTimersByTimeAsync(52 * CARD_MOVE_ANIMATION_MS)
+      await vi.advanceTimersByTimeAsync(52 * AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS)
       await done
 
       expect(store.isAnimating).toBe(false)
@@ -490,11 +536,29 @@ describe('useGameStore', () => {
       ])
       expect(store.state.tableau[1]).toEqual([createCard('hearts', 1, true)])
 
-      await vi.advanceTimersByTimeAsync(2 * CARD_MOVE_ANIMATION_MS)
+      await vi.advanceTimersByTimeAsync(2 * AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS)
       await done
 
       expect(store.state.foundations.hearts).toEqual([createCard('hearts', 1, true)])
       expect(store.state.tableau[1]).toEqual([])
+    })
+
+    it('flags isAutoCompleting only for the duration of the cascade', async () => {
+      const store = useGameStore()
+      store.state = emptyState({
+        foundations: { clubs: [createCard('clubs', 4, true)], diamonds: [], hearts: [], spades: [] },
+        tableau: [[createCard('clubs', 5, true)], [], [], [], [], [], []],
+      })
+      expect(store.isAutoCompleting).toBe(false)
+
+      const done = store.autoComplete()
+      await vi.advanceTimersByTimeAsync(1)
+      expect(store.isAutoCompleting).toBe(true)
+
+      await vi.advanceTimersByTimeAsync(AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS)
+      await done
+
+      expect(store.isAutoCompleting).toBe(false)
     })
 
     it('is a no-op when unavailable', async () => {
@@ -527,7 +591,7 @@ describe('useGameStore', () => {
 
       const first = store.autoComplete()
       const second = store.autoComplete() // re-entrant call: must be a no-op
-      await vi.advanceTimersByTimeAsync(2 * CARD_MOVE_ANIMATION_MS)
+      await vi.advanceTimersByTimeAsync(2 * AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS)
       await first
       await second
 
@@ -564,13 +628,95 @@ describe('useGameStore', () => {
       const freshState = store.state
       expect(freshState.seed).toBe(999)
 
-      await vi.advanceTimersByTimeAsync(2 * CARD_MOVE_ANIMATION_MS)
+      await vi.advanceTimersByTimeAsync(2 * AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS)
       await done
 
       // The abandoned cascade's remaining step (hearts-1) must never be
       // applied on top of the fresh deal.
       expect(store.state).toBe(freshState)
       expect(store.isAnimating).toBe(false)
+      expect(store.isAutoCompleting).toBe(false)
+    })
+
+    it('holds a paused cascade still — the next already-scheduled step never lands while paused', async () => {
+      const store = useGameStore()
+      store.state = emptyState({
+        foundations: { clubs: [createCard('clubs', 4, true)], diamonds: [], hearts: [], spades: [] },
+        tableau: [
+          [createCard('clubs', 5, true)],
+          [createCard('hearts', 1, true)],
+          [],
+          [],
+          [],
+          [],
+          [],
+        ],
+      })
+
+      const done = store.autoComplete()
+      await vi.advanceTimersByTimeAsync(1) // let step 1 (clubs-5) land
+      expect(store.state.foundations.clubs).toEqual([
+        createCard('clubs', 4, true),
+        createCard('clubs', 5, true),
+      ])
+      expect(store.state.tableau[1]).toEqual([createCard('hearts', 1, true)])
+
+      store.pause()
+      expect(store.state.status).toBe('paused')
+
+      // Advance well past when step 2 would have landed if the pause
+      // hadn't actually taken hold — it must still be exactly one card in.
+      await vi.advanceTimersByTimeAsync(10 * AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS)
+      expect(store.state.status).toBe('paused')
+      expect(store.state.tableau[1]).toEqual([createCard('hearts', 1, true)])
+      expect(store.state.foundations.hearts).toEqual([])
+      expect(store.isAnimating).toBe(true)
+
+      // Clean up the still-pending cascade so it doesn't leak into later
+      // tests/timers.
+      store.resume()
+      await vi.advanceTimersByTimeAsync(2 * AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS)
+      await done
+    })
+
+    it('resumes a paused cascade from exactly where it left off, finishing normally as one undo step', async () => {
+      const store = useGameStore()
+      store.state = emptyState({
+        foundations: { clubs: [createCard('clubs', 4, true)], diamonds: [], hearts: [], spades: [] },
+        tableau: [
+          [createCard('clubs', 5, true)],
+          [createCard('hearts', 1, true)],
+          [],
+          [],
+          [],
+          [],
+          [],
+        ],
+      })
+      const original = store.state
+
+      const done = store.autoComplete()
+      await vi.advanceTimersByTimeAsync(1) // let step 1 (clubs-5) land
+
+      store.pause()
+      await vi.advanceTimersByTimeAsync(5 * AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS)
+
+      store.resume()
+      expect(store.state.status).toBe('playing')
+
+      await vi.advanceTimersByTimeAsync(2 * AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS)
+      await done
+
+      expect(store.state.foundations.hearts).toEqual([createCard('hearts', 1, true)])
+      expect(store.state.tableau[1]).toEqual([])
+      expect(store.isAnimating).toBe(false)
+      expect(store.isAutoCompleting).toBe(false)
+
+      // Still exactly one undo step for the whole cascade, pause/resume
+      // included.
+      store.undo()
+      expect(store.state).toEqual(original)
+      expect(store.canUndo).toBe(false)
     })
 
     it('runs the full cascade through the store when the stock and waste both still hold cards', async () => {
@@ -589,7 +735,7 @@ describe('useGameStore', () => {
       expect(store.canAutoComplete).toBe(true)
 
       const done = store.autoComplete()
-      await vi.advanceTimersByTimeAsync(10 * CARD_MOVE_ANIMATION_MS)
+      await vi.advanceTimersByTimeAsync(10 * AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS)
       await done
 
       expect(store.state.foundations.spades).toEqual(

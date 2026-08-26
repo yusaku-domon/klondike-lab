@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, onScopeDispose, shallowRef } from 'vue'
-import { CARD_MOVE_ANIMATION_MS } from '../animationTiming'
+import { AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS, CARD_MOVE_ANIMATION_MS } from '../animationTiming'
 import { autoCompleteSteps, canAutoComplete as canAutoCompleteState } from '../domain/autoComplete'
 import { createInitialGameState, type GameState } from '../domain/deal'
 import { applyMove, clickStock as clickStockMove, type MoveCommand } from '../domain/moves'
@@ -37,7 +37,30 @@ export const useGameStore = defineStore('game', () => {
   // callable at any time (e.g. from tests) exactly as before.
   const isAnimatingRef = shallowRef(false)
   const isAnimating = computed(() => isAnimatingRef.value)
+  // UI-facing signal only, same as isAnimating above: lets the board pick
+  // the faster cascade transition duration for the cards it's currently
+  // drawing, without the store's own pacing/logic depending on it at all.
+  const isAutoCompletingRef = shallowRef(false)
+  const isAutoCompleting = computed(() => isAutoCompletingRef.value)
   let animationTimer: ReturnType<typeof setTimeout> | null = null
+
+  // Lets a paused auto-complete cascade actually hold still instead of the
+  // next already-scheduled step silently overwriting the pause: the
+  // cascade loop below awaits this while status is 'paused', and resume()
+  // (or an abandoning newGame(), via clearAnimationLock) wakes it back up.
+  let resumeWaiters: Array<() => void> = []
+
+  function waitForResume(): Promise<void> {
+    return new Promise((resolve) => {
+      resumeWaiters.push(resolve)
+    })
+  }
+
+  function releaseResumeWaiters() {
+    const waiters = resumeWaiters
+    resumeWaiters = []
+    for (const resolve of waiters) resolve()
+  }
 
   function clearAnimationLock() {
     if (animationTimer !== null) {
@@ -45,6 +68,8 @@ export const useGameStore = defineStore('game', () => {
       animationTimer = null
     }
     isAnimatingRef.value = false
+    isAutoCompletingRef.value = false
+    releaseResumeWaiters()
   }
 
   function triggerMoveAnimation() {
@@ -92,8 +117,13 @@ export const useGameStore = defineStore('game', () => {
   function syncTimer() {
     // Don't start counting while the player is just looking at a freshly
     // dealt board — the clock begins the moment the first card actually
-    // moves (a draw or a move both increment moveCount).
-    const shouldRun = state.value.status === 'playing' && state.value.moveCount > 0
+    // moves (a draw or a move both increment moveCount). Also never while
+    // an auto-complete cascade is in flight (including while it's paused
+    // partway through) — resume() calls this too, and without the extra
+    // check it would restart the clock for whatever's left of the
+    // cascade, undoing the "cascade time never counts" guarantee.
+    const shouldRun =
+      state.value.status === 'playing' && state.value.moveCount > 0 && !isAutoCompletingRef.value
     if (shouldRun && timerHandle === null) {
       timerHandle = setInterval(tick, 1000)
     } else if (!shouldRun) {
@@ -132,8 +162,8 @@ export const useGameStore = defineStore('game', () => {
   }
 
   // Plays the cascade back one atomic move at a time (each foundation move
-  // or stock click gets its own state update, CARD_MOVE_ANIMATION_MS apart)
-  // instead of jumping straight to the final state — so GameBoard's
+  // or stock click gets its own state update, AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS
+  // apart) instead of jumping straight to the final state — so GameBoard's
   // existing per-move animation watcher, which only ever sees one state
   // transition at a time, animates each card individually exactly as it
   // would for a manual move. Still counts as a SINGLE undo step and a
@@ -161,13 +191,14 @@ export const useGameStore = defineStore('game', () => {
       animationTimer = null
     }
     isAnimatingRef.value = true
+    isAutoCompletingRef.value = true
 
-    // The cascade's own pacing (CARD_MOVE_ANIMATION_MS per step) is purely
-    // a display mechanism, not something the player spent time deciding —
-    // stop the elapsed-time clock for its duration so it doesn't count
-    // toward play time. No catch-up afterward: the skipped seconds are
-    // simply never counted, and syncTimer() below resumes the normal
-    // one-tick-per-real-second pace once the cascade lands.
+    // The cascade's own pacing (AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS per
+    // step) is purely a display mechanism, not something the player spent
+    // time deciding — stop the elapsed-time clock for its duration so it
+    // doesn't count toward play time. No catch-up afterward: the skipped
+    // seconds are simply never counted, and syncTimer() below resumes the
+    // normal one-tick-per-real-second pace once the cascade lands.
     stopTimer()
 
     for (const step of steps) {
@@ -177,16 +208,32 @@ export const useGameStore = defineStore('game', () => {
       // of it again — applying a stale step now would resurrect cards
       // from the abandoned game into the fresh deal.
       if (gameEpoch.value !== startEpoch) return
+
+      // Honor a pause requested mid-cascade: hold here, without applying
+      // the next step, until the player resumes — otherwise the next
+      // already-scheduled step would silently overwrite pause()'s
+      // 'paused' status a moment later and the cascade would run to
+      // completion regardless of the player's request. A `while` (not
+      // `if`) covers a rapid re-pause landing right as this wakes up.
+      while (state.value.status === 'paused') {
+        await waitForResume()
+        if (gameEpoch.value !== startEpoch) return
+      }
+
       state.value = step
-      await new Promise<void>((resolve) => setTimeout(resolve, CARD_MOVE_ANIMATION_MS))
+      await new Promise<void>((resolve) => setTimeout(resolve, AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS))
     }
 
     if (gameEpoch.value !== startEpoch) return
 
     pushHistory(previous)
     persist()
-    syncTimer()
+    // Cleared before syncTimer() so it can actually restart the clock now
+    // that the cascade is genuinely finished (syncTimer() itself refuses
+    // to run while isAutoCompletingRef is still true).
     isAnimatingRef.value = false
+    isAutoCompletingRef.value = false
+    syncTimer()
   }
 
   function undo() {
@@ -212,6 +259,7 @@ export const useGameStore = defineStore('game', () => {
     state.value = { ...state.value, status: 'playing' }
     persist()
     syncTimer()
+    releaseResumeWaiters()
   }
 
   syncTimer()
@@ -237,6 +285,7 @@ export const useGameStore = defineStore('game', () => {
     isPlayable,
     canAutoComplete,
     isAnimating,
+    isAutoCompleting,
     gameEpoch,
     newGame,
     clickStock,

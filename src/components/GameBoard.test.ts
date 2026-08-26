@@ -2,11 +2,12 @@
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { CARD_MOVE_ANIMATION_MS } from '../animationTiming'
+import { AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS, CARD_MOVE_ANIMATION_MS } from '../animationTiming'
 import { emptyState } from '../testFixtures'
 import { createCard, RANKS, type Card } from '../domain/cards'
 import type { GameState } from '../domain/deal'
 import { isCompleteUniqueDeck } from '../domain/invariants'
+import { saveGame } from '../persistence/gameStorage'
 import { useGameStore } from '../stores/game'
 import { useSettingsStore } from '../stores/settings'
 import GameBoard from './GameBoard.vue'
@@ -195,7 +196,7 @@ describe('GameBoard', () => {
       expect(wrapper.find('.auto-complete-prompt').exists()).toBe(false)
       expect(store.isWon).toBe(false)
 
-      await vi.advanceTimersByTimeAsync(52 * CARD_MOVE_ANIMATION_MS)
+      await vi.advanceTimersByTimeAsync(52 * AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS)
       await wrapper.vm.$nextTick()
 
       expect(store.isWon).toBe(true)
@@ -225,6 +226,37 @@ describe('GameBoard', () => {
       store.resume()
       await wrapper.vm.$nextTick()
 
+      expect(wrapper.find('.auto-complete-prompt').exists()).toBe(false)
+    })
+
+    it('appears on mount for a game restored from localStorage that was already fully revealed when saved', async () => {
+      // Simulates quitting right after revealing the last tableau card (or
+      // even mid-cascade with stock/waste still holding cards) and coming
+      // back later: there is no false→true transition to observe here
+      // since the board is revealed from the very first tick, so this only
+      // works if the prompt watch also checks the state it starts with.
+      localStorage.clear()
+      saveGame(almostFullyRevealedState())
+
+      const { wrapper, store } = mountBoard()
+      await wrapper.vm.$nextTick()
+
+      expect(store.canAutoComplete).toBe(true)
+      expect(wrapper.find('.auto-complete-prompt').exists()).toBe(true)
+    })
+
+    it('does not appear on mount for a freshly restored game that still has a face-down tableau card', async () => {
+      localStorage.clear()
+      saveGame(
+        emptyState({
+          tableau: [[createCard('clubs', 1, false)], [], [], [], [], [], []],
+        }),
+      )
+
+      const { wrapper, store } = mountBoard()
+      await wrapper.vm.$nextTick()
+
+      expect(store.canAutoComplete).toBe(false)
       expect(wrapper.find('.auto-complete-prompt').exists()).toBe(false)
     })
   })
@@ -360,7 +392,7 @@ describe('GameBoard', () => {
       ])
       expect(store.state.tableau[1]).toEqual([createCard('hearts', 1, true)])
 
-      await vi.advanceTimersByTimeAsync(CARD_MOVE_ANIMATION_MS)
+      await vi.advanceTimersByTimeAsync(AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS)
       await wrapper.vm.$nextTick()
 
       // clubs-5's elevation has dropped back — it's no longer mid-move —
@@ -369,10 +401,52 @@ describe('GameBoard', () => {
       expect(findZIndex(wrapper, 'ハートのA')).toBeGreaterThan(findZIndex(wrapper, 'ハートの9'))
       expect(store.state.tableau[1]).toEqual([])
 
-      await vi.advanceTimersByTimeAsync(CARD_MOVE_ANIMATION_MS)
+      await vi.advanceTimersByTimeAsync(AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS)
       await wrapper.vm.$nextTick()
 
       expect(store.state.foundations.hearts).toEqual([createCard('hearts', 1, true)])
+    })
+
+    function findTransitionDuration(wrapper: ReturnType<typeof mount>, ariaLabel: string) {
+      const wrapperDiv = wrapper
+        .findAll('.card-wrapper')
+        .find((w) => w.find(`[aria-label*="${ariaLabel}"]`).exists())
+      return wrapperDiv?.attributes('style')?.match(/transition-duration:\s*([\d.]+)ms/)?.[1]
+    }
+
+    it('animates cascade steps at the faster auto-complete duration, not the normal move duration', async () => {
+      const { wrapper, store } = mountBoard()
+      store.state = twoCardCascadeState()
+      await wrapper.vm.$nextTick()
+
+      store.autoComplete()
+      await wrapper.vm.$nextTick()
+
+      expect(store.isAutoCompleting).toBe(true)
+      expect(findTransitionDuration(wrapper, 'クラブの5')).toBe(
+        String(AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS),
+      )
+
+      await vi.advanceTimersByTimeAsync(2 * AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS)
+      await wrapper.vm.$nextTick()
+
+      expect(store.isAutoCompleting).toBe(false)
+    })
+
+    it('leaves a normal manual move at its usual (slower) duration, unaffected by the auto-complete constant', async () => {
+      const { wrapper, store } = mountBoard()
+      store.state = emptyState({
+        waste: [createCard('spades', 1, true)],
+        tableau: [[], [], [], [], [], [], []],
+      })
+      await wrapper.vm.$nextTick()
+
+      await wrapper.get('[data-testid="card-spades-1"]').trigger('click')
+      await wrapper.get('[data-testid="foundation-empty-spades"]').trigger('click')
+      await wrapper.vm.$nextTick()
+
+      expect(store.isAutoCompleting).toBe(false)
+      expect(findTransitionDuration(wrapper, 'スペードのA')).toBe(String(CARD_MOVE_ANIMATION_MS))
     })
 
     it('blocks manual clicks and a second auto-complete trigger for the whole cascade', async () => {
@@ -394,7 +468,7 @@ describe('GameBoard', () => {
       await wrapper.vm.$nextTick()
       expect(store.state).toBe(before)
 
-      await vi.advanceTimersByTimeAsync(2 * CARD_MOVE_ANIMATION_MS)
+      await vi.advanceTimersByTimeAsync(2 * AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS)
       await wrapper.vm.$nextTick()
 
       expect(store.isAnimating).toBe(false)
@@ -421,12 +495,12 @@ describe('GameBoard', () => {
       await wrapper.vm.$nextTick()
 
       // Partway through the 52-card cascade: not won yet, no banner.
-      await vi.advanceTimersByTimeAsync(10 * CARD_MOVE_ANIMATION_MS)
+      await vi.advanceTimersByTimeAsync(10 * AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS)
       await wrapper.vm.$nextTick()
       expect(store.isWon).toBe(false)
       expect(wrapper.find('.win-banner').exists()).toBe(false)
 
-      await vi.advanceTimersByTimeAsync(52 * CARD_MOVE_ANIMATION_MS)
+      await vi.advanceTimersByTimeAsync(52 * AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS)
       await wrapper.vm.$nextTick()
 
       expect(store.isWon).toBe(true)
@@ -476,20 +550,20 @@ describe('GameBoard', () => {
       // Partway through (tableau alone is 39 moves): not won, no banner,
       // and the deck is still exactly 52 unique cards — nothing lost or
       // duplicated mid-cascade.
-      await vi.advanceTimersByTimeAsync(20 * CARD_MOVE_ANIMATION_MS)
+      await vi.advanceTimersByTimeAsync(20 * AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS)
       await wrapper.vm.$nextTick()
       expect(store.isWon).toBe(false)
       expect(wrapper.find('.win-banner').exists()).toBe(false)
       expect(isCompleteUniqueDeck(allCards(store.state))).toBe(true)
 
       // Still not done: the stock hasn't been touched yet at this point.
-      await vi.advanceTimersByTimeAsync(40 * CARD_MOVE_ANIMATION_MS)
+      await vi.advanceTimersByTimeAsync(40 * AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS)
       await wrapper.vm.$nextTick()
       expect(store.isWon).toBe(false)
       expect(wrapper.find('.win-banner').exists()).toBe(false)
 
       // 39 tableau moves + 13 draws + 13 foundation placements = 65 steps.
-      await vi.advanceTimersByTimeAsync(65 * CARD_MOVE_ANIMATION_MS)
+      await vi.advanceTimersByTimeAsync(65 * AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS)
       await done
       await wrapper.vm.$nextTick()
 

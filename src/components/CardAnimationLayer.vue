@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { CARD_MOVE_ANIMATION_MS } from '../animationTiming'
 import { createCardId, RANKS, SUITS, type Card } from '../domain/cards'
 import type { GameState } from '../domain/deal'
 import type { CardPosition, DestinationHighlightLevel } from './boardLayout'
@@ -18,6 +17,10 @@ const props = defineProps<{
    * the actual visible card the player sees, unlike the invisible ghost
    * copy underneath, so this is where the highlight has to be applied. */
   destinationHighlights: ReadonlyMap<string, DestinationHighlightLevel>
+  /** CSS transition duration for every card's transform, in ms. The caller
+   * picks CARD_MOVE_ANIMATION_MS or AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS —
+   * this layer just renders whatever it's given. */
+  animationDurationMs: number
 }>()
 
 function destinationHighlightClass(id: string): string | undefined {
@@ -65,7 +68,7 @@ const cardsById = computed<Map<string, Card>>(() => {
         transform: `translate(${positions.get(id)?.x ?? 0}px, ${positions.get(id)?.y ?? 0}px)`,
         zIndex:
           (positions.get(id)?.z ?? 0) + (animatingCardIds.has(id) ? ANIMATING_Z_OFFSET : 0),
-        transitionDuration: `${CARD_MOVE_ANIMATION_MS}ms`,
+        transitionDuration: `${props.animationDurationMs}ms`,
       }"
     >
       <PlayingCard
@@ -99,8 +102,8 @@ const cardsById = computed<Map<string, Card>>(() => {
   position: absolute;
   top: 0;
   left: 0;
-  /* Duration comes from the inline style (CARD_MOVE_ANIMATION_MS) so the
-     store's input-lock timeout can never drift out of sync with it. */
+  /* Duration comes from the inline style (animationDurationMs prop) so the
+     store's input-lock/cascade timeout can never drift out of sync with it. */
   transition-property: transform;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   will-change: transform;

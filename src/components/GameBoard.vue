@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { CARD_MOVE_ANIMATION_MS } from '../animationTiming'
+import { AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS, CARD_MOVE_ANIMATION_MS } from '../animationTiming'
 import type { Suit } from '../domain/cards'
 import { isFullyRevealed } from '../domain/autoComplete'
 import { getLegalDestinations, type PileRef } from '../domain/moves'
@@ -107,6 +107,14 @@ const cardPositions = computed(() => {
   return computeCardPositions(store.state, slotLayout.value, stackOffsetPx.value)
 })
 
+// Auto-complete cascade steps animate faster than a manual move; every
+// place that needs "how long is this move's transition" reads this instead
+// of the constants directly, so the two never fall out of sync with each
+// other for a given state change.
+const cardAnimationDurationMs = computed(() =>
+  store.isAutoCompleting ? AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS : CARD_MOVE_ANIMATION_MS,
+)
+
 // Cards that just relocated (pile and/or index changed) get bumped above
 // the rest of the layer for the duration of the move's CSS transition, so
 // they never visually dip behind another pile while sliding across it.
@@ -128,7 +136,7 @@ watch(
     animatingCardsTimer = setTimeout(() => {
       animatingCardsTimer = null
       animatingCardIds.value = new Set()
-    }, CARD_MOVE_ANIMATION_MS)
+    }, cardAnimationDurationMs.value)
   },
 )
 
@@ -194,11 +202,20 @@ const destinationCardHighlights = computed<ReadonlyMap<string, DestinationHighli
 
 // Prompt once, right when the board newly becomes fully revealed — not on
 // every re-render, and not again just because the player paused/resumed.
+// `immediate: true` also covers a game restored from localStorage that was
+// *already* fully revealed the moment it loads (e.g. the player quit right
+// after revealing the last card): without it, a lazy watch only fires on a
+// false→true transition, and there is no such transition to observe here —
+// the board is revealed from its very first tick, so the prompt would
+// otherwise never appear even though the manual button is already enabled.
+// On the immediate call `wasRevealed` is `undefined`, so `!wasRevealed` is
+// `true` and this correctly reduces to just `revealed`.
 watch(
   () => isFullyRevealed(store.state),
   (revealed, wasRevealed) => {
     showAutoCompletePrompt.value = revealed && !wasRevealed
   },
+  { immediate: true },
 )
 
 function confirmAutoComplete() {
@@ -319,6 +336,7 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
         :selected-card-ids="selectedCardIds"
         :animating-card-ids="animatingCardIds"
         :destination-highlights="destinationCardHighlights"
+        :animation-duration-ms="cardAnimationDurationMs"
       />
     </template>
 

@@ -2,6 +2,7 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import { emptyState } from '../testFixtures'
+import { CARD_MOVE_ANIMATION_MS } from '../animationTiming'
 import { createCard } from '../domain/cards'
 import CardAnimationLayer from './CardAnimationLayer.vue'
 
@@ -19,6 +20,7 @@ describe('CardAnimationLayer', () => {
         selectedCardIds: new Set<string>(),
         animatingCardIds: new Set<string>(),
         destinationHighlights: new Map(),
+        animationDurationMs: CARD_MOVE_ANIMATION_MS,
       },
     })
 
@@ -35,6 +37,7 @@ describe('CardAnimationLayer', () => {
         selectedCardIds: new Set<string>(),
         animatingCardIds: new Set<string>(),
         destinationHighlights: new Map(),
+        animationDurationMs: CARD_MOVE_ANIMATION_MS,
       },
     })
 
@@ -84,6 +87,7 @@ describe('CardAnimationLayer', () => {
         selectedCardIds: new Set<string>(),
         animatingCardIds: new Set<string>(),
         destinationHighlights: new Map(),
+        animationDurationMs: CARD_MOVE_ANIMATION_MS,
       },
     })
     expect(zIndexOf(notAnimating, 'スペードのA')).toBe(0)
@@ -95,6 +99,7 @@ describe('CardAnimationLayer', () => {
         selectedCardIds: new Set<string>(),
         animatingCardIds: new Set(['spades-1']),
         destinationHighlights: new Map(),
+        animationDurationMs: CARD_MOVE_ANIMATION_MS,
       },
     })
     // spades-1 has the LOWEST in-pile z (0) of everyone on the board, yet
@@ -131,6 +136,7 @@ describe('CardAnimationLayer', () => {
         selectedCardIds: new Set<string>(),
         animatingCardIds: new Set<string>(),
         destinationHighlights: new Map<string, 'weak' | 'strong'>([['clubs-6', 'strong']]),
+        animationDurationMs: CARD_MOVE_ANIMATION_MS,
       },
     })
 
