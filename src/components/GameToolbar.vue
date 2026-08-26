@@ -11,7 +11,17 @@ function startNewGame() {
   seedInput.value = ''
 }
 
+// v-model on a native <input type="number"> hands back a number once a
+// value has been typed (not always a string, despite seedInput's type),
+// so this must coerce before checking for blank rather than assuming string.
+const canStartWithSeed = computed(() => String(seedInput.value).trim() !== '')
+
 function startWithSeed() {
+  // Defense in depth alongside the submit button's :disabled binding below —
+  // Number('') is 0, a "valid" seed, so an empty field must be rejected
+  // explicitly here too rather than relying only on the button being
+  // disabled (e.g. pressing Enter in the field doesn't always respect it).
+  if (!canStartWithSeed.value) return
   const seed = Number(seedInput.value)
   if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff) return
   store.newGame(seed)
@@ -68,7 +78,7 @@ const formattedElapsed = computed(() => {
         Seed
         <input v-model="seedInput" type="number" min="0" :max="0xffffffff" />
       </label>
-      <button type="submit">このseedで開始</button>
+      <button type="submit" :disabled="!canStartWithSeed">このseedで開始</button>
     </form>
 
     <dl class="stats">
