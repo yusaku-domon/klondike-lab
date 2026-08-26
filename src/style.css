@@ -18,6 +18,9 @@
   --color-card-border: #333;
   --color-empty-pile-icon: #cfe9db;
   --color-text-on-dark: #fff;
+  --color-button-bg: #fff;
+  --color-button-text: #1a1a1a;
+  --color-button-shadow: #9a9a9a;
 
   --card-width: 4.5rem;
   --card-height: 6.5rem;
@@ -73,4 +76,38 @@ body {
   box-shadow:
     0 0 0 3px rgba(79, 209, 197, 0.95),
     0 0 14px 3px rgba(79, 209, 197, 0.65);
+}
+
+/*
+ * Shared "pressable" button look — global so every real UI action button
+ * (toolbar controls, the settings toggle, the resume/YES/NO buttons) gets
+ * the same raised-then-pushed-in feel from one place, instead of each
+ * component re-implementing its own box-shadow/active-state rules.
+ * Purely presentational: doesn't touch layout, so a component's own
+ * scoped rules (e.g. GameBoard's wider prompt-action padding) can still
+ * layer on top via normal CSS specificity.
+ */
+.btn {
+  appearance: none;
+  border: none;
+  border-radius: 0.4rem;
+  padding: 0.5rem 1rem;
+  background: var(--color-button-bg);
+  color: var(--color-button-text);
+  font: inherit;
+  cursor: pointer;
+  box-shadow: 0 3px 0 var(--color-button-shadow);
+  transform: translateY(0);
+  transition: transform 0.05s ease-out, box-shadow 0.05s ease-out;
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 var(--color-button-shadow);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
 }

@@ -56,15 +56,21 @@ const formattedElapsed = computed(() => {
 <template>
   <div class="toolbar">
     <div class="actions">
-      <button type="button" @click="startNewGame">New Game</button>
-      <button type="button" :disabled="!store.canUndo || store.isAnimating" @click="handleUndo">
+      <button type="button" class="btn" @click="startNewGame">New Game</button>
+      <button
+        type="button"
+        class="btn"
+        :disabled="!store.canUndo || store.isAnimating"
+        @click="handleUndo"
+      >
         Undo
       </button>
-      <button type="button" :disabled="store.isWon" @click="togglePause">
+      <button type="button" class="btn" :disabled="store.isWon" @click="togglePause">
         {{ store.state.status === 'paused' ? 'Resume' : 'Pause' }}
       </button>
       <button
         type="button"
+        class="btn"
         :disabled="!store.canAutoComplete || store.isAnimating"
         @click="handleAutoComplete"
       >
@@ -78,7 +84,7 @@ const formattedElapsed = computed(() => {
         Seed
         <input v-model="seedInput" type="number" min="0" :max="0xffffffff" />
       </label>
-      <button type="submit" :disabled="!canStartWithSeed">Start with This Seed</button>
+      <button type="submit" class="btn" :disabled="!canStartWithSeed">Start with This Seed</button>
     </form>
 
     <dl class="stats">
@@ -145,10 +151,5 @@ const formattedElapsed = computed(() => {
 
 .stats dd {
   margin: 0;
-}
-
-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 </style>

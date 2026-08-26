@@ -14,6 +14,7 @@ function toggleOpen() {
   <div class="settings-panel">
     <button
       type="button"
+      class="btn"
       aria-haspopup="true"
       :aria-expanded="isOpen"
       @click="toggleOpen"

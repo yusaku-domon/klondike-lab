@@ -345,7 +345,7 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
          with 'won' and with isPlayable. -->
     <div v-if="store.state.status === 'paused'" class="pause-overlay" role="status">
       <p class="pause-title">Paused</p>
-      <button type="button" @click="store.resume()">Resume</button>
+      <button type="button" class="btn" @click="store.resume()">Resume</button>
     </div>
 
     <div
@@ -356,8 +356,8 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
     >
       <p class="prompt-title">Auto-complete the game?</p>
       <div class="prompt-actions">
-        <button type="button" @click="confirmAutoComplete">YES</button>
-        <button type="button" @click="dismissAutoCompletePrompt">NO</button>
+        <button type="button" class="btn" @click="confirmAutoComplete">YES</button>
+        <button type="button" class="btn" @click="dismissAutoCompletePrompt">NO</button>
       </div>
     </div>
 
