@@ -26,10 +26,10 @@ export const SUIT_SYMBOLS: Record<Suit, string> = {
 }
 
 export const SUIT_NAMES: Record<Suit, string> = {
-  clubs: 'クラブ',
-  diamonds: 'ダイヤ',
-  hearts: 'ハート',
-  spades: 'スペード',
+  clubs: 'Clubs',
+  diamonds: 'Diamonds',
+  hearts: 'Hearts',
+  spades: 'Spades',
 }
 
 export function getCardColor(suit: Suit): CardColor {

@@ -56,19 +56,19 @@ const formattedElapsed = computed(() => {
 <template>
   <div class="toolbar">
     <div class="actions">
-      <button type="button" @click="startNewGame">新しいゲーム</button>
+      <button type="button" @click="startNewGame">New Game</button>
       <button type="button" :disabled="!store.canUndo || store.isAnimating" @click="handleUndo">
         Undo
       </button>
       <button type="button" :disabled="store.isWon" @click="togglePause">
-        {{ store.state.status === 'paused' ? '再開' : '一時停止' }}
+        {{ store.state.status === 'paused' ? 'Resume' : 'Pause' }}
       </button>
       <button
         type="button"
         :disabled="!store.canAutoComplete || store.isAnimating"
         @click="handleAutoComplete"
       >
-        自動で仕上げる
+        Auto Complete
       </button>
       <SettingsPanel />
     </div>
@@ -78,20 +78,20 @@ const formattedElapsed = computed(() => {
         Seed
         <input v-model="seedInput" type="number" min="0" :max="0xffffffff" />
       </label>
-      <button type="submit" :disabled="!canStartWithSeed">このseedで開始</button>
+      <button type="submit" :disabled="!canStartWithSeed">Start with This Seed</button>
     </form>
 
     <dl class="stats">
       <div>
-        <dt>スコア</dt>
+        <dt>Score</dt>
         <dd>{{ store.state.score }}</dd>
       </div>
       <div>
-        <dt>経過時間</dt>
+        <dt>Time</dt>
         <dd>{{ formattedElapsed }}</dd>
       </div>
       <div>
-        <dt>手数</dt>
+        <dt>Moves</dt>
         <dd>{{ store.state.moveCount }}</dd>
       </div>
       <div>

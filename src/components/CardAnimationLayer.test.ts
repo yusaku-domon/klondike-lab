@@ -41,7 +41,7 @@ describe('CardAnimationLayer', () => {
       },
     })
 
-    const indexInTableau = domIndexOf(wrapper, 'ハートのA')
+    const indexInTableau = domIndexOf(wrapper, 'A of Hearts')
     expect(indexInTableau).toBeGreaterThanOrEqual(0)
 
     // Move the same card from tableau to a foundation (a different pile
@@ -52,7 +52,7 @@ describe('CardAnimationLayer', () => {
       }),
     })
 
-    const indexInFoundation = domIndexOf(wrapper, 'ハートのA')
+    const indexInFoundation = domIndexOf(wrapper, 'A of Hearts')
     expect(indexInFoundation).toBe(indexInTableau)
   })
 
@@ -90,7 +90,7 @@ describe('CardAnimationLayer', () => {
         animationDurationMs: CARD_MOVE_ANIMATION_MS,
       },
     })
-    expect(zIndexOf(notAnimating, 'スペードのA')).toBe(0)
+    expect(zIndexOf(notAnimating, 'A of Spades')).toBe(0)
 
     const animating = mount(CardAnimationLayer, {
       props: {
@@ -105,9 +105,9 @@ describe('CardAnimationLayer', () => {
     // spades-1 has the LOWEST in-pile z (0) of everyone on the board, yet
     // while animating it must still render above hearts-7 (in-pile z 3,
     // the deepest/topmost card of the other column).
-    expect(zIndexOf(animating, 'スペードのA')).toBeGreaterThan(zIndexOf(animating, 'ハートの7'))
+    expect(zIndexOf(animating, 'A of Spades')).toBeGreaterThan(zIndexOf(animating, '7 of Hearts'))
     // And it's back to its normal (lower) stacking once not animating.
-    expect(zIndexOf(notAnimating, 'スペードのA')).toBeLessThan(zIndexOf(notAnimating, 'ハートの7'))
+    expect(zIndexOf(notAnimating, 'A of Spades')).toBeLessThan(zIndexOf(notAnimating, '7 of Hearts'))
   })
 
   function classesOf(wrapper: ReturnType<typeof mount>, ariaLabel: string): string[] | undefined {
@@ -140,8 +140,8 @@ describe('CardAnimationLayer', () => {
       },
     })
 
-    expect(classesOf(wrapper, 'クラブの6')).toContain('nav-strong')
-    expect(classesOf(wrapper, 'ハートの9')).not.toContain('nav-weak')
-    expect(classesOf(wrapper, 'ハートの9')).not.toContain('nav-strong')
+    expect(classesOf(wrapper, '6 of Clubs')).toContain('nav-strong')
+    expect(classesOf(wrapper, '9 of Hearts')).not.toContain('nav-weak')
+    expect(classesOf(wrapper, '9 of Hearts')).not.toContain('nav-strong')
   })
 })

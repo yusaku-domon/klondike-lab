@@ -10,7 +10,7 @@ createApp(App).use(createPinia()).mount('#app')
 // user might be mid-game; only do it once they explicitly confirm.
 const updateSW = registerSW({
   onNeedRefresh() {
-    if (confirm('新しいバージョンが利用可能です。今すぐ更新しますか？')) {
+    if (confirm('A new version is available. Update now?')) {
       updateSW(true)
     }
   },

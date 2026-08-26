@@ -344,17 +344,17 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
          below, never shown together since 'paused' is mutually exclusive
          with 'won' and with isPlayable. -->
     <div v-if="store.state.status === 'paused'" class="pause-overlay" role="status">
-      <p class="pause-title">一時停止中</p>
-      <button type="button" @click="store.resume()">再開</button>
+      <p class="pause-title">Paused</p>
+      <button type="button" @click="store.resume()">Resume</button>
     </div>
 
     <div
       v-if="showAutoCompletePrompt && store.isPlayable"
       class="auto-complete-prompt"
       role="alertdialog"
-      aria-label="自動で仕上げますか？"
+      aria-label="Auto-complete the game?"
     >
-      <p class="prompt-title">自動で仕上げますか？</p>
+      <p class="prompt-title">Auto-complete the game?</p>
       <div class="prompt-actions">
         <button type="button" @click="confirmAutoComplete">YES</button>
         <button type="button" @click="dismissAutoCompletePrompt">NO</button>
@@ -362,10 +362,10 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
     </div>
 
     <div v-if="store.isWon" class="win-banner" role="status">
-      <p class="win-title">クリア！</p>
+      <p class="win-title">You Win!</p>
       <p>
-        スコア: {{ store.state.score }} ／ 経過時間: {{ store.state.elapsedSeconds }}秒 ／ 手数:
-        {{ store.state.moveCount }} ／ Seed: {{ store.state.seed }}
+        Score: {{ store.state.score }} / Time: {{ store.state.elapsedSeconds }}s / Moves:
+        {{ store.state.moveCount }} / Seed: {{ store.state.seed }}
       </p>
     </div>
   </div>

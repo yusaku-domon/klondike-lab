@@ -3,7 +3,7 @@
 // Keeping these in one place avoids the two drifting out of sync.
 export const CARD_MOVE_ANIMATION_MS = 280
 
-// Same idea, but only for "自動で仕上げる" cascade steps: 1.5x the normal
+// Same idea, but only for "Auto Complete" cascade steps: 1.5x the normal
 // pace. Kept as its own constant (not a derived multiplier applied at the
 // call sites) so CardAnimationLayer's CSS transition and the store's
 // per-step cascade timeout can share this one value the same way the pair

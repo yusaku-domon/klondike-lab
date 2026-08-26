@@ -348,12 +348,12 @@ describe('GameBoard', () => {
         return Number(wrapperDiv?.attributes('style')?.match(/z-index:\s*(-?\d+)/)?.[1])
       }
 
-      expect(findZIndex('スペードのA')).toBeGreaterThan(findZIndex('ハートの7'))
+      expect(findZIndex('A of Spades')).toBeGreaterThan(findZIndex('7 of Hearts'))
 
       vi.advanceTimersByTime(CARD_MOVE_ANIMATION_MS)
       await wrapper.vm.$nextTick()
 
-      expect(findZIndex('スペードのA')).toBeLessThan(findZIndex('ハートの7'))
+      expect(findZIndex('A of Spades')).toBeLessThan(findZIndex('7 of Hearts'))
     })
   })
 
@@ -390,7 +390,7 @@ describe('GameBoard', () => {
 
       // First tick: clubs-5 is elevated (mid-move) and already relocated in
       // state; hearts-1 has not moved yet — no simultaneous movement.
-      expect(findZIndex(wrapper, 'クラブの5')).toBeGreaterThan(findZIndex(wrapper, 'ハートの9'))
+      expect(findZIndex(wrapper, '5 of Clubs')).toBeGreaterThan(findZIndex(wrapper, '9 of Hearts'))
       expect(store.state.foundations.clubs).toEqual([
         createCard('clubs', 4, true),
         createCard('clubs', 5, true),
@@ -403,7 +403,7 @@ describe('GameBoard', () => {
       // clubs-5's elevation has dropped back — it's no longer mid-move —
       // and hearts-1 is now the one elevated, confirming the two moves
       // never overlapped.
-      expect(findZIndex(wrapper, 'ハートのA')).toBeGreaterThan(findZIndex(wrapper, 'ハートの9'))
+      expect(findZIndex(wrapper, 'A of Hearts')).toBeGreaterThan(findZIndex(wrapper, '9 of Hearts'))
       expect(store.state.tableau[1]).toEqual([])
 
       await vi.advanceTimersByTimeAsync(AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS)
@@ -428,7 +428,7 @@ describe('GameBoard', () => {
       await wrapper.vm.$nextTick()
 
       expect(store.isAutoCompleting).toBe(true)
-      expect(findTransitionDuration(wrapper, 'クラブの5')).toBe(
+      expect(findTransitionDuration(wrapper, '5 of Clubs')).toBe(
         String(AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS),
       )
 
@@ -451,7 +451,7 @@ describe('GameBoard', () => {
       await wrapper.vm.$nextTick()
 
       expect(store.isAutoCompleting).toBe(false)
-      expect(findTransitionDuration(wrapper, 'スペードのA')).toBe(String(CARD_MOVE_ANIMATION_MS))
+      expect(findTransitionDuration(wrapper, 'A of Spades')).toBe(String(CARD_MOVE_ANIMATION_MS))
     })
 
     it('blocks manual clicks and a second auto-complete trigger for the whole cascade', async () => {
@@ -628,7 +628,7 @@ describe('GameBoard', () => {
 
       // The destination is column 0's existing top card (hearts-9), not
       // the whole column.
-      expect(renderedCardClasses(wrapper, 'ハートの9')).toContain('nav-strong')
+      expect(renderedCardClasses(wrapper, '9 of Hearts')).toContain('nav-strong')
       for (let i = 0; i < 7; i++) {
         expect(tableauColumnEl(wrapper, i).classes()).not.toContain('nav-weak')
         expect(tableauColumnEl(wrapper, i).classes()).not.toContain('nav-strong')
@@ -646,10 +646,10 @@ describe('GameBoard', () => {
 
       await wrapper.get('[data-testid="card-hearts-5"]').trigger('click')
 
-      expect(renderedCardClasses(wrapper, 'ハートの5')).toContain('selected')
-      expect(renderedCardClasses(wrapper, 'ハートの5')).not.toContain('nav-strong')
-      expect(renderedCardClasses(wrapper, 'クラブの6')).toContain('nav-strong')
-      expect(renderedCardClasses(wrapper, 'クラブの6')).not.toContain('selected')
+      expect(renderedCardClasses(wrapper, '5 of Hearts')).toContain('selected')
+      expect(renderedCardClasses(wrapper, '5 of Hearts')).not.toContain('nav-strong')
+      expect(renderedCardClasses(wrapper, '6 of Clubs')).toContain('nav-strong')
+      expect(renderedCardClasses(wrapper, '6 of Clubs')).not.toContain('selected')
       // The whole column no longer lights up — only the card does.
       expect(tableauColumnEl(wrapper, 0).classes()).not.toContain('nav-strong')
       expect(tableauColumnEl(wrapper, 0).classes()).not.toContain('nav-weak')
@@ -713,7 +713,7 @@ describe('GameBoard', () => {
       // [clubs-8, hearts-7] group, per the existing 2-click selection model.
       await wrapper.get('[data-testid="card-clubs-8"]').trigger('click')
 
-      expect(renderedCardClasses(wrapper, 'ハートの9')).toContain('nav-strong')
+      expect(renderedCardClasses(wrapper, '9 of Hearts')).toContain('nav-strong')
       for (const suit of ['clubs', 'diamonds', 'hearts', 'spades']) {
         const el = wrapper.find(`[data-testid="foundation-empty-${suit}"]`)
         if (el.exists()) {
@@ -747,7 +747,7 @@ describe('GameBoard', () => {
       vi.advanceTimersByTime(CARD_MOVE_ANIMATION_MS)
       await wrapper.vm.$nextTick()
       await wrapper.get('[data-testid="card-clubs-8"]').trigger('click')
-      expect(renderedCardClasses(wrapper, 'ハートの9')).toContain('nav-strong')
+      expect(renderedCardClasses(wrapper, '9 of Hearts')).toContain('nav-strong')
     })
 
     it('produces no highlight and no crash after Undo leaves a stale selection', async () => {
@@ -777,7 +777,7 @@ describe('GameBoard', () => {
       vi.advanceTimersByTime(CARD_MOVE_ANIMATION_MS)
       await wrapper.vm.$nextTick()
       await wrapper.get('[data-testid="card-clubs-8"]').trigger('click')
-      expect(renderedCardClasses(wrapper, 'ハートの9')).toContain('nav-strong')
+      expect(renderedCardClasses(wrapper, '9 of Hearts')).toContain('nav-strong')
     })
 
     it('suppresses all highlighting when the setting is off, but selection and the two-click move still work', async () => {
@@ -824,7 +824,7 @@ describe('GameBoard', () => {
 
       settings.setMoveNavigationEnabled(true)
       await wrapper.vm.$nextTick()
-      expect(renderedCardClasses(wrapper, 'ハートの9')).toContain('nav-strong')
+      expect(renderedCardClasses(wrapper, '9 of Hearts')).toContain('nav-strong')
     })
 
     it('a fresh store instance restores the persisted OFF setting and shows no highlight (reload simulation)', async () => {

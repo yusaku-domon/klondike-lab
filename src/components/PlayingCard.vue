@@ -32,9 +32,9 @@ const suitSymbol = computed(() => SUIT_SYMBOLS[props.card.suit])
 const colorClass = computed(() => (getCardColor(props.card.suit) === 'red' ? 'red' : 'black'))
 
 const ariaLabel = computed(() => {
-  if (!props.card.faceUp) return '裏向きのカード'
-  const base = `${SUIT_NAMES[props.card.suit]}の${rankLabel.value}`
-  return props.selected ? `${base}、選択中` : base
+  if (!props.card.faceUp) return 'Face-down card'
+  const base = `${rankLabel.value} of ${SUIT_NAMES[props.card.suit]}`
+  return props.selected ? `${base}, selected` : base
 })
 </script>
 

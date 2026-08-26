@@ -23,7 +23,7 @@ const topCard = computed<Card | null>(() => props.waste[props.waste.length - 1] 
     type="button"
     class="empty-pile"
     data-testid="waste-empty"
-    aria-label="捨て札は空です"
+    aria-label="Waste pile is empty"
     @click="$emit('click')"
   />
 </template>

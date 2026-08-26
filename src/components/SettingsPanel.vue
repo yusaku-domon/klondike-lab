@@ -18,17 +18,17 @@ function toggleOpen() {
       :aria-expanded="isOpen"
       @click="toggleOpen"
     >
-      設定
+      Settings
     </button>
 
-    <div v-if="isOpen" class="panel" role="region" aria-label="設定">
+    <div v-if="isOpen" class="panel" role="region" aria-label="Settings">
       <label class="setting-row">
         <input
           type="checkbox"
           :checked="settings.moveNavigationEnabled"
           @change="settings.setMoveNavigationEnabled(($event.target as HTMLInputElement).checked)"
         />
-        移動ナビゲーション
+        Move Navigation
       </label>
     </div>
   </div>

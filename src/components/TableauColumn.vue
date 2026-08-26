@@ -30,14 +30,14 @@ function isSelected(index: number): boolean {
     class="tableau-column"
     :class="highlight !== 'none' ? `nav-${highlight}` : undefined"
     role="group"
-    :aria-label="`場札${columnIndex + 1}列目`"
+    :aria-label="`Tableau column ${columnIndex + 1}`"
   >
     <button
       v-if="column.length === 0"
       type="button"
       class="empty-column"
       :data-testid="`tableau-empty-${columnIndex}`"
-      :aria-label="`空の場札列(${columnIndex + 1}列目)`"
+      :aria-label="`Empty tableau column (column ${columnIndex + 1})`"
       @click="emit('select', null)"
     />
     <div

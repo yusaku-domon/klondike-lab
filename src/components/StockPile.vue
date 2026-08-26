@@ -5,9 +5,9 @@ const props = defineProps<{ stockCount: number; wasteCount: number }>()
 defineEmits<{ click: [] }>()
 
 const ariaLabel = computed(() => {
-  if (props.stockCount > 0) return `山札(残り${props.stockCount}枚)`
-  if (props.wasteCount > 0) return '山札は空です。クリックすると捨て札を山札に戻します'
-  return '山札は空です'
+  if (props.stockCount > 0) return `Stock (${props.stockCount} cards left)`
+  if (props.wasteCount > 0) return 'Stock is empty. Click to move the waste pile back to the stock.'
+  return 'Stock is empty'
 })
 </script>
 

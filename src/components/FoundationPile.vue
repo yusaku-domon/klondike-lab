@@ -40,7 +40,7 @@ const highlightClass = computed(() => (props.highlight !== 'none' ? `nav-${props
     class="empty-pile"
     :class="highlightClass"
     :data-testid="`foundation-empty-${suit}`"
-    :aria-label="`${SUIT_NAMES[suit]}の組札は空です`"
+    :aria-label="`${SUIT_NAMES[suit]} foundation is empty`"
     @click="$emit('click')"
   >
     <span aria-hidden="true">{{ suitSymbol }}</span>
