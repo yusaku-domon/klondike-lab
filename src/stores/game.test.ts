@@ -821,4 +821,32 @@ describe('useGameStore', () => {
       expect(store.state.waste).toHaveLength(2)
     })
   })
+
+  describe('lifecycle cleanup', () => {
+    it('removes its visibilitychange/beforeunload listeners when disposed', () => {
+      const docAddSpy = vi.spyOn(document, 'addEventListener')
+      const docRemoveSpy = vi.spyOn(document, 'removeEventListener')
+      const winAddSpy = vi.spyOn(window, 'addEventListener')
+      const winRemoveSpy = vi.spyOn(window, 'removeEventListener')
+
+      const store = useGameStore()
+
+      const visibilityHandler = docAddSpy.mock.calls.find(
+        (call) => call[0] === 'visibilitychange',
+      )?.[1]
+      const beforeUnloadHandler = winAddSpy.mock.calls.find(
+        (call) => call[0] === 'beforeunload',
+      )?.[1]
+      expect(visibilityHandler).toBeTypeOf('function')
+      expect(beforeUnloadHandler).toBeTypeOf('function')
+
+      // Without cleanup, a re-instantiated store (dev HMR, another test)
+      // would pile up another pair of listeners forever, each still
+      // closing over this instance's now-abandoned state/persist.
+      store.$dispose()
+
+      expect(docRemoveSpy).toHaveBeenCalledWith('visibilitychange', visibilityHandler)
+      expect(winRemoveSpy).toHaveBeenCalledWith('beforeunload', beforeUnloadHandler)
+    })
+  })
 })

@@ -262,21 +262,34 @@ export const useGameStore = defineStore('game', () => {
     releaseResumeWaiters()
   }
 
-  syncTimer()
-  onScopeDispose(() => {
-    if (timerHandle !== null) clearInterval(timerHandle)
-    if (animationTimer !== null) clearTimeout(animationTimer)
-  })
+  function persistOnHidden() {
+    if (document.visibilityState === 'hidden') persist()
+  }
 
   if (typeof document !== 'undefined') {
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') persist()
-    })
+    document.addEventListener('visibilitychange', persistOnHidden)
   }
 
   if (typeof window !== 'undefined') {
     window.addEventListener('beforeunload', persist)
   }
+
+  syncTimer()
+  onScopeDispose(() => {
+    if (timerHandle !== null) clearInterval(timerHandle)
+    if (animationTimer !== null) clearTimeout(animationTimer)
+    // Named handlers (rather than inline closures) so this instance's
+    // listeners can actually be removed — without this, every store
+    // re-instantiation (dev HMR, multiple test/store instances) would pile
+    // up another pair of listeners forever, each still closing over this
+    // instance's now-abandoned `state`/`persist`.
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', persistOnHidden)
+    }
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('beforeunload', persist)
+    }
+  })
 
   return {
     state,
