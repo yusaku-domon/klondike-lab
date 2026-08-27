@@ -15,6 +15,7 @@ export default defineConfig({
         description: 'An offline-first Klondike Solitaire game',
         lang: 'en',
         display: 'standalone',
+        orientation: 'portrait',
         background_color: '#0f7a44',
         theme_color: '#0b3d24',
         icons: [

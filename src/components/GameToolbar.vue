@@ -132,6 +132,10 @@ const formattedElapsed = computed(() => {
 
 .seed-form input {
   width: 8rem;
+  min-height: 2.75rem;
+  padding: 0 0.5rem;
+  font: inherit;
+  box-sizing: border-box;
 }
 
 .stats {

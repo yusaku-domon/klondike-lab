@@ -92,7 +92,20 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  min-height: 2.75rem;
   white-space: nowrap;
   cursor: pointer;
+  box-sizing: border-box;
+}
+
+.setting-row input[type='checkbox'] {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.setting-row select {
+  min-height: 2.5rem;
+  padding: 0.25rem 0.5rem;
+  font: inherit;
 }
 </style>

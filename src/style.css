@@ -98,7 +98,12 @@ body {
   appearance: none;
   border: none;
   border-radius: 0.4rem;
-  padding: 0.5rem 1rem;
+  /* min-height rather than relying on padding + line-height alone, so the
+     tap target stays >=44px (the commonly-cited comfortable minimum) even
+     where a more specific rule (e.g. GameBoard's .prompt-actions button)
+     overrides this padding without also overriding min-height. */
+  min-height: 2.75rem;
+  padding: 0.75rem 1.25rem;
   background: var(--color-button-bg);
   color: var(--color-button-text);
   font: inherit;
