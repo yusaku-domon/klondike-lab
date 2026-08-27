@@ -1,18 +1,41 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import type { CardDesign } from '../persistence/settingsStorage'
 import { useSettingsStore } from '../stores/settings'
 
 const settings = useSettingsStore()
 const isOpen = ref(false)
+const rootEl = ref<HTMLElement | null>(null)
 
 function toggleOpen() {
   isOpen.value = !isOpen.value
 }
+
+// Closes the panel on any click outside it (another toolbar button, a
+// card, anywhere) without letting that click also trigger whatever it
+// landed on — capture phase runs before the target's own bubble-phase
+// listener, so stopping it here swallows the click instead of passing it
+// through. A click on the toggle button itself is inside rootEl, so this
+// leaves it alone and toggleOpen's own listener still runs normally.
+function handleOutsideClick(event: MouseEvent) {
+  if (!isOpen.value) return
+  if (rootEl.value && event.target instanceof Node && rootEl.value.contains(event.target)) return
+  isOpen.value = false
+  event.stopPropagation()
+  event.preventDefault()
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleOutsideClick, true)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleOutsideClick, true)
+})
 </script>
 
 <template>
-  <div class="settings-panel">
+  <div ref="rootEl" class="settings-panel">
     <button
       type="button"
       class="btn"
