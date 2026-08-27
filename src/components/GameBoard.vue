@@ -26,6 +26,36 @@ import WastePile from './WastePile.vue'
 
 const SUITS: Suit[] = ['clubs', 'diamonds', 'hearts', 'spades']
 
+const CONFETTI_COLORS = ['#ffb300', '#ff5252', '#40c4ff', '#69f0ae', '#e040fb', '#ffee58']
+
+// Fixed, computed spread rather than Math.random() — deterministic, like
+// the rest of this codebase's presentation math (e.g. computeCardPositions)
+// — burst from two origins (one per cracker emoji either side of the
+// title), each covering half the pieces via the alternating `side`.
+const CONFETTI_PIECES = Array.from({ length: 24 }, (_, i) => {
+  const side = i % 2 === 0 ? -1 : 1
+  const angleDeg = 200 + ((i * 47) % 140)
+  const angle = (angleDeg * Math.PI) / 180
+  const distance = 60 + ((i * 29) % 60)
+  const dx = Math.cos(angle) * distance * side
+  const dy = Math.sin(angle) * distance + 40
+  const rotate = 180 + ((i * 53) % 360)
+  const delay = (i % 6) * 40
+
+  return {
+    id: i,
+    style: {
+      left: side < 0 ? '32%' : '68%',
+      top: '22%',
+      '--dx': `${dx}px`,
+      '--dy': `${dy}px`,
+      '--rotate': `${rotate}deg`,
+      '--delay': `${delay}ms`,
+      '--piece-color': CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+    },
+  }
+})
+
 const store = useGameStore()
 const settings = useSettingsStore()
 const selection = ref<PileRef | null>(null)
@@ -552,7 +582,18 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
     </div>
 
     <div v-if="store.isWon" class="win-banner" role="status">
-      <p class="win-title">You Win!</p>
+      <span
+        v-for="piece in CONFETTI_PIECES"
+        :key="piece.id"
+        class="confetti-piece"
+        :style="piece.style"
+        aria-hidden="true"
+      />
+      <div class="win-title-row">
+        <span class="cracker" aria-hidden="true">🎉</span>
+        <p class="win-title">You Win!</p>
+        <span class="cracker" aria-hidden="true">🎉</span>
+      </div>
       <p>
         Score: {{ store.state.score }} / Time: {{ store.state.elapsedSeconds }}s / Moves:
         {{ store.state.moveCount }} / Seed: {{ store.state.seed }}
@@ -610,10 +651,57 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
   padding: 1rem;
 }
 
+.win-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.cracker {
+  font-size: 1.75rem;
+}
+
 .win-title {
-  font-size: 2rem;
-  font-weight: bold;
+  font-family: 'Press Start 2P', monospace;
+  /* Press Start 2P ships one weight only — font-weight: bold here would
+     just have the browser synthesize a fake bold, which smears a pixel
+     font's blocky strokes instead of thickening them cleanly. */
+  font-weight: 400;
+  font-size: 1.25rem;
+  letter-spacing: 0.1em;
   margin: 0;
+}
+
+.confetti-piece {
+  position: absolute;
+  width: 8px;
+  height: 14px;
+  background: var(--piece-color);
+  animation: confetti-burst 900ms ease-out var(--delay, 0ms) both;
+  pointer-events: none;
+}
+
+@keyframes confetti-burst {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+  30% {
+    transform: translate(calc(var(--dx) * 0.6), calc(var(--dy) * 0.3 - 20px))
+      rotate(calc(var(--rotate) * 0.5));
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--dx), var(--dy)) rotate(var(--rotate));
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confetti-piece {
+    animation: none;
+    opacity: 0;
+  }
 }
 
 .pause-overlay {

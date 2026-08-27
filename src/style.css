@@ -49,6 +49,22 @@
   );
 }
 
+/* Vendored locally (see src/assets/fonts/press-start-2p/SOURCE.md) rather
+   than linked from a CDN, so it works offline like every other app-shell
+   asset and needs no network access this PWA doesn't otherwise require.
+   Under src/ (not public/) and referenced by a relative url(), unlike the
+   card/icon assets — this is a plain CSS file with no build-time BASE_URL
+   substitution available, so this is the one place Vite's own asset
+   pipeline (which does rewrite relative url()s for the configured base)
+   has to do the base-path rewriting instead. */
+@font-face {
+  font-family: 'Press Start 2P';
+  src: url('./assets/fonts/press-start-2p/PressStart2P-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 /*
  * Without this, the browser's default 8px body margin pushes the app's
  * height:100% chain past the viewport, which forces a scrollbar even
