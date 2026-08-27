@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { getCardColor, SUIT_NAMES, SUIT_SYMBOLS, type Card } from '../domain/cards'
-import { PIP_LAYOUTS } from './cardPipLayout'
+import type { CardDesign } from '../persistence/settingsStorage'
+import SvgCardFace from './SvgCardFace.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -20,8 +21,14 @@ const props = withDefaults(
      * living inside an aria-hidden layer.
      */
     decorative?: boolean
+    /** Which face artwork to render — passed down from GameBoard (which
+     * reads the settings store) rather than read from the store directly
+     * here, so this component stays a pure, store-free presentational
+     * piece usable from any context (including tests that never set up
+     * Pinia at all). */
+    cardDesign?: CardDesign
   }>(),
-  { selected: false, interactive: false, ghost: false, decorative: false },
+  { selected: false, interactive: false, ghost: false, decorative: false, cardDesign: 'classic' },
 )
 
 defineEmits<{ select: [] }>()
@@ -31,11 +38,6 @@ const RANK_LABELS: Record<number, string> = { 1: 'A', 11: 'J', 12: 'Q', 13: 'K' 
 const rankLabel = computed(() => RANK_LABELS[props.card.rank] ?? String(props.card.rank))
 const suitSymbol = computed(() => SUIT_SYMBOLS[props.card.suit])
 const colorClass = computed(() => (getCardColor(props.card.suit) === 'red' ? 'red' : 'black'))
-// Only ranks 2-10 have a pip layout; Ace keeps its single big centered
-// symbol, and face cards (J/Q/K) get the letter+flanking-symbols treatment
-// below — neither looks at this.
-const pipLayout = computed(() => PIP_LAYOUTS[props.card.rank])
-const isFaceCard = computed(() => props.card.rank >= 11)
 
 const ariaLabel = computed(() => {
   if (!props.card.faceUp) return 'Face-down card'
@@ -49,37 +51,24 @@ const ariaLabel = computed(() => {
     :is="interactive ? 'button' : 'div'"
     :type="interactive ? 'button' : undefined"
     class="playing-card"
-    :class="[card.faceUp ? colorClass : 'face-down', { selected, interactive, ghost }]"
+    :class="[
+      card.faceUp ? colorClass : 'face-down',
+      { selected, interactive, ghost, 'image-backed': cardDesign !== 'classic' },
+    ]"
     :data-testid="decorative ? undefined : `card-${card.id}`"
     :aria-pressed="interactive ? selected : undefined"
     :aria-label="ariaLabel"
     @click="interactive && $emit('select')"
   >
-    <template v-if="card.faceUp">
-      <span class="corner top" aria-hidden="true">{{ rankLabel }}{{ suitSymbol }}</span>
-
-      <span v-if="card.rank === 1" class="suit-symbol-large" aria-hidden="true">{{ suitSymbol }}</span>
-
-      <div v-else-if="pipLayout" class="pip-grid" aria-hidden="true">
-        <span
-          v-for="(pip, index) in pipLayout"
-          :key="index"
-          class="pip"
-          :class="{ rotated: pip.rotated }"
-          :style="{ left: `${pip.x}%`, top: `${pip.y}%` }"
-        >
-          {{ suitSymbol }}
-        </span>
-      </div>
-
-      <div v-else-if="isFaceCard" class="face-card" aria-hidden="true">
-        <span class="face-side-symbol">{{ suitSymbol }}</span>
-        <span class="face-letter">{{ rankLabel }}</span>
-        <span class="face-side-symbol">{{ suitSymbol }}</span>
-      </div>
-
-      <span class="corner bottom" aria-hidden="true">{{ rankLabel }}{{ suitSymbol }}</span>
+    <template v-if="cardDesign === 'classic'">
+      <template v-if="card.faceUp">
+        <span class="corner top" aria-hidden="true">{{ rankLabel }}{{ suitSymbol }}</span>
+        <span class="suit-symbol-large" aria-hidden="true">{{ suitSymbol }}</span>
+        <span class="corner bottom" aria-hidden="true">{{ rankLabel }}{{ suitSymbol }}</span>
+      </template>
     </template>
+
+    <SvgCardFace v-else :deck="cardDesign" :card="card" />
   </component>
 </template>
 
@@ -102,6 +91,12 @@ const ariaLabel = computed(() => {
 
 .playing-card.face-down {
   background: var(--card-back-pattern);
+}
+
+.playing-card.image-backed {
+  border: none;
+  background: transparent;
+  padding: 0;
 }
 
 .playing-card.red {
@@ -140,38 +135,5 @@ const ariaLabel = computed(() => {
 .suit-symbol-large {
   font-size: 1.8rem;
   text-align: center;
-}
-
-.pip-grid {
-  position: relative;
-  flex: 1;
-}
-
-.pip {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  font-size: 0.9rem;
-  line-height: 1;
-}
-
-.pip.rotated {
-  transform: translate(-50%, -50%) rotate(180deg);
-}
-
-.face-card {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.3rem;
-}
-
-.face-letter {
-  font-size: 2rem;
-  font-weight: bold;
-}
-
-.face-side-symbol {
-  font-size: 1.1rem;
 }
 </style>

@@ -2,26 +2,31 @@
 import { computed } from 'vue'
 import { createCardId, RANKS, SUITS, type Card } from '../domain/cards'
 import type { GameState } from '../domain/deal'
+import type { CardDesign } from '../persistence/settingsStorage'
 import type { CardPosition, DestinationHighlightLevel } from './boardLayout'
 import PlayingCard from './PlayingCard.vue'
 
-const props = defineProps<{
-  state: GameState
-  positions: Map<string, CardPosition>
-  selectedCardIds: ReadonlySet<string>
-  /** Cards currently mid-move: rendered above the entire rest of the
-   * layer so they never dip behind another pile they slide past, while
-   * keeping their relative order within the moving group intact. */
-  animatingCardIds: ReadonlySet<string>
-  /** Move-navigation hint for a card that's a legal drop target — this is
-   * the actual visible card the player sees, unlike the invisible ghost
-   * copy underneath, so this is where the highlight has to be applied. */
-  destinationHighlights: ReadonlyMap<string, DestinationHighlightLevel>
-  /** CSS transition duration for every card's transform, in ms. The caller
-   * picks CARD_MOVE_ANIMATION_MS or AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS —
-   * this layer just renders whatever it's given. */
-  animationDurationMs: number
-}>()
+const props = withDefaults(
+  defineProps<{
+    state: GameState
+    positions: Map<string, CardPosition>
+    selectedCardIds: ReadonlySet<string>
+    /** Cards currently mid-move: rendered above the entire rest of the
+     * layer so they never dip behind another pile they slide past, while
+     * keeping their relative order within the moving group intact. */
+    animatingCardIds: ReadonlySet<string>
+    /** Move-navigation hint for a card that's a legal drop target — this is
+     * the actual visible card the player sees, unlike the invisible ghost
+     * copy underneath, so this is where the highlight has to be applied. */
+    destinationHighlights: ReadonlyMap<string, DestinationHighlightLevel>
+    /** CSS transition duration for every card's transform, in ms. The caller
+     * picks CARD_MOVE_ANIMATION_MS or AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS —
+     * this layer just renders whatever it's given. */
+    animationDurationMs: number
+    cardDesign?: CardDesign
+  }>(),
+  { cardDesign: 'classic' },
+)
 
 function destinationHighlightClass(id: string): string | undefined {
   const level = props.destinationHighlights.get(id)
@@ -76,6 +81,7 @@ const cardsById = computed<Map<string, Card>>(() => {
         :card="cardsById.get(id)!"
         :selected="selectedCardIds.has(id)"
         :class="destinationHighlightClass(id)"
+        :card-design="cardDesign"
         decorative
       />
     </div>

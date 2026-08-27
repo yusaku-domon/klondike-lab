@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Card } from '../domain/cards'
+import type { CardDesign } from '../persistence/settingsStorage'
 import { TABLEAU_STACK_OFFSET_REM, type HighlightLevel } from './boardLayout'
 import PlayingCard from './PlayingCard.vue'
 
@@ -14,8 +15,9 @@ const props = withDefaults(
      * directly on CardAnimationLayer instead, so the whole column no
      * longer lights up as a destination. */
     highlight?: HighlightLevel
+    cardDesign?: CardDesign
   }>(),
-  { highlight: 'none' },
+  { highlight: 'none', cardDesign: 'classic' },
 )
 
 const emit = defineEmits<{ select: [cardIndex: number | null] }>()
@@ -50,6 +52,7 @@ function isSelected(index: number): boolean {
         :card="card"
         :selected="isSelected(index)"
         :interactive="card.faceUp"
+        :card-design="cardDesign"
         ghost
         @select="emit('select', index)"
       />

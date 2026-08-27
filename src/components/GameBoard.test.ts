@@ -830,7 +830,7 @@ describe('GameBoard', () => {
     it('a fresh store instance restores the persisted OFF setting and shows no highlight (reload simulation)', async () => {
       localStorage.setItem(
         'klondike-lab.settings',
-        JSON.stringify({ moveNavigationEnabled: false }),
+        JSON.stringify({ moveNavigationEnabled: false, cardDesign: 'classic' }),
       )
 
       const pinia = createPinia()

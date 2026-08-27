@@ -16,7 +16,10 @@ describe('useSettingsStore', () => {
   })
 
   it('restores a previously saved false value on init', () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ moveNavigationEnabled: false }))
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ moveNavigationEnabled: false, cardDesign: 'classic' }),
+    )
     const store = useSettingsStore()
     expect(store.moveNavigationEnabled).toBe(false)
   })
@@ -31,5 +34,31 @@ describe('useSettingsStore', () => {
     store.setMoveNavigationEnabled(true)
     expect(store.moveNavigationEnabled).toBe(true)
     expect(loadSettings().moveNavigationEnabled).toBe(true)
+  })
+
+  it('defaults cardDesign to classic when nothing was saved', () => {
+    const store = useSettingsStore()
+    expect(store.cardDesign).toBe('classic')
+  })
+
+  it('restores a previously saved cardDesign on init', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ moveNavigationEnabled: true, cardDesign: 'saulspatz' }),
+    )
+    const store = useSettingsStore()
+    expect(store.cardDesign).toBe('saulspatz')
+  })
+
+  it('setCardDesign updates state and persists immediately, without touching moveNavigationEnabled', () => {
+    const store = useSettingsStore()
+    store.setMoveNavigationEnabled(false)
+
+    store.setCardDesign('saulspatz')
+
+    expect(store.cardDesign).toBe('saulspatz')
+    expect(loadSettings().cardDesign).toBe('saulspatz')
+    // The other setting's own persisted value must survive this call.
+    expect(loadSettings().moveNavigationEnabled).toBe(false)
   })
 })

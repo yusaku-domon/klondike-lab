@@ -284,6 +284,7 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
         <StockPile
           :stock-count="store.state.stock.length"
           :waste-count="store.state.waste.length"
+          :card-design="settings.cardDesign"
           @click="handleClick({ type: 'stock' })"
         />
       </div>
@@ -291,6 +292,7 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
         <WastePile
           :waste="store.state.waste"
           :selected="isSelected({ type: 'waste' })"
+          :card-design="settings.cardDesign"
           @click="handleClick({ type: 'waste' })"
         />
       </div>
@@ -306,6 +308,7 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
           :pile="store.state.foundations[suit]"
           :selected="isSelected({ type: 'foundation', suit })"
           :highlight="foundationHighlight(suit)"
+          :card-design="settings.cardDesign"
           @click="handleClick({ type: 'foundation', suit })"
         />
       </div>
@@ -323,6 +326,7 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
           :column-index="columnIndex"
           :selected-from-index="tableauSelectedFromIndex(columnIndex)"
           :highlight="tableauHighlight(columnIndex)"
+          :card-design="settings.cardDesign"
           @select="(cardIndex) => handleClick({ type: 'tableau', column: columnIndex, cardIndex })"
         />
       </div>
@@ -336,6 +340,7 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
       :animating-card-ids="animatingCardIds"
       :destination-highlights="destinationCardHighlights"
       :animation-duration-ms="cardAnimationDurationMs"
+      :card-design="settings.cardDesign"
     />
 
     <!-- Grays out the board in place rather than replacing it, so the

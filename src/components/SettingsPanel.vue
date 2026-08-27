@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import type { CardDesign } from '../persistence/settingsStorage'
 import { useSettingsStore } from '../stores/settings'
 
 const settings = useSettingsStore()
@@ -30,6 +31,17 @@ function toggleOpen() {
           @change="settings.setMoveNavigationEnabled(($event.target as HTMLInputElement).checked)"
         />
         Move Navigation
+      </label>
+
+      <label class="setting-row">
+        Card Design
+        <select
+          :value="settings.cardDesign"
+          @change="settings.setCardDesign(($event.target as HTMLSelectElement).value as CardDesign)"
+        >
+          <option value="classic">Classic</option>
+          <option value="saulspatz">Saul Spatz</option>
+        </select>
       </label>
     </div>
   </div>

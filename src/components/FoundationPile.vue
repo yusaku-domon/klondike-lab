@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { SUIT_NAMES, SUIT_SYMBOLS, type Card, type Suit } from '../domain/cards'
+import type { CardDesign } from '../persistence/settingsStorage'
 import type { HighlightLevel } from './boardLayout'
 import PlayingCard from './PlayingCard.vue'
 
@@ -15,8 +16,9 @@ const props = withDefaults(
      * directly on CardAnimationLayer instead (the ghost card here is
      * invisible, so highlighting it wouldn't be seen). */
     highlight?: HighlightLevel
+    cardDesign?: CardDesign
   }>(),
-  { highlight: 'none' },
+  { highlight: 'none', cardDesign: 'classic' },
 )
 defineEmits<{ click: [] }>()
 
@@ -30,6 +32,7 @@ const highlightClass = computed(() => (props.highlight !== 'none' ? `nav-${props
     v-if="topCard"
     :card="topCard"
     :selected="selected"
+    :card-design="cardDesign"
     interactive
     ghost
     @select="$emit('click')"
