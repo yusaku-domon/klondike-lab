@@ -81,7 +81,10 @@ function endDrag() {
 }
 
 function handleDragStart(from: PileRef, event: PointerEvent) {
-  if (!store.isPlayable || store.isAnimating || dragState.value) return
+  // event.button is 0 for touch/pen contact and a primary-button mouse
+  // press; a right- or middle-click shouldn't start a drag (or fight the
+  // browser's own context menu on release).
+  if (!store.isPlayable || store.isAnimating || dragState.value || event.button !== 0) return
   const movingCards = getMovingCards(store.state, from)
   if (!movingCards) return
 
@@ -130,7 +133,16 @@ function handlePointerUp(event: PointerEvent) {
     return
   }
 
+  // Only the click event this SAME gesture is about to fire should be
+  // suppressed. A drop over background with no click handler at all (the
+  // top-row spacer, board padding) would otherwise leave this flag set
+  // indefinitely, silently swallowing some future, unrelated click —
+  // queueMicrotask clears it right after that immediate click has had its
+  // chance to run, whether or not anything actually consumed it.
   suppressNextClick = true
+  queueMicrotask(() => {
+    suppressNextClick = false
+  })
   const boardRect = boardEl.value?.getBoundingClientRect()
   const to =
     boardRect && slotLayout.value

@@ -21,7 +21,7 @@ const src = computed(() =>
 </script>
 
 <template>
-  <img :src="src" alt="" class="card-face-image" />
+  <img :src="src" alt="" class="card-face-image" draggable="false" />
 </template>
 
 <style scoped>

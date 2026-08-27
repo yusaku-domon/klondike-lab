@@ -1065,5 +1065,30 @@ describe('GameBoard', () => {
       // should be the 'strong' single-destination highlight.
       expect(wrapper.get('[data-testid="foundation-empty-hearts"]').classes()).toContain('nav-strong')
     })
+
+    it('does not suppress a later, unrelated click after a drag is dropped on background with no click handler', async () => {
+      const { wrapper, store } = mountAttachedBoard()
+      store.state = emptyState({
+        waste: [createCard('hearts', 5, true)],
+        tableau: [[createCard('clubs', 8, true)], [], [], [], [], [], []],
+      })
+      await wrapper.vm.$nextTick()
+
+      // Dropped between the waste slot and the first foundation slot — the
+      // spacer has no click handler and isn't a valid drop target, so
+      // nothing here would naturally consume the suppression flag.
+      await drag(
+        wrapper,
+        'card-hearts-5',
+        { x: WASTE_X + 10, y: 10 },
+        { x: WASTE_X + PITCH - 4, y: 10 },
+      )
+      expect(store.state.waste).toEqual([createCard('hearts', 5, true)])
+
+      const unrelatedCard = wrapper.get('[data-testid="card-clubs-8"]')
+      await unrelatedCard.trigger('click')
+
+      expect(unrelatedCard.attributes('aria-pressed')).toBe('true')
+    })
   })
 })

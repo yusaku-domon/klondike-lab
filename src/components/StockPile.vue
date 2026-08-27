@@ -31,6 +31,7 @@ const backImageSrc = computed(() => `${import.meta.env.BASE_URL}cards/${props.ca
       :src="backImageSrc"
       alt=""
       class="card-back-image"
+      draggable="false"
     />
     <span v-else-if="wasteCount > 0" class="recycle-icon" aria-hidden="true">&#8635;</span>
   </button>
