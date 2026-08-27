@@ -5,10 +5,27 @@ import SettingsPanel from './SettingsPanel.vue'
 
 const store = useGameStore()
 const seedInput = ref('')
+// Which action is waiting on the discard-confirmation overlay below, if
+// any — set instead of switching games immediately whenever there's real,
+// unfinished progress (moved at least once, not already won) that would
+// otherwise be silently lost.
+const pendingAction = ref<'new' | 'seed' | null>(null)
 
-function startNewGame() {
+function needsDiscardConfirmation(): boolean {
+  return store.state.moveCount > 0 && store.state.status !== 'won'
+}
+
+function performNewGame() {
   store.newGame()
   seedInput.value = ''
+}
+
+function startNewGame() {
+  if (needsDiscardConfirmation()) {
+    pendingAction.value = 'new'
+    return
+  }
+  performNewGame()
 }
 
 // v-model on a native <input type="number"> hands back a number once a
@@ -16,7 +33,7 @@ function startNewGame() {
 // so this must coerce before checking for blank rather than assuming string.
 const canStartWithSeed = computed(() => String(seedInput.value).trim() !== '')
 
-function startWithSeed() {
+function performStartWithSeed() {
   // Defense in depth alongside the submit button's :disabled binding below —
   // Number('') is 0, a "valid" seed, so an empty field must be rejected
   // explicitly here too rather than relying only on the button being
@@ -25,6 +42,25 @@ function startWithSeed() {
   const seed = Number(seedInput.value)
   if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff) return
   store.newGame(seed)
+}
+
+function startWithSeed() {
+  if (!canStartWithSeed.value) return
+  if (needsDiscardConfirmation()) {
+    pendingAction.value = 'seed'
+    return
+  }
+  performStartWithSeed()
+}
+
+function confirmPendingAction() {
+  if (pendingAction.value === 'new') performNewGame()
+  else if (pendingAction.value === 'seed') performStartWithSeed()
+  pendingAction.value = null
+}
+
+function cancelPendingAction() {
+  pendingAction.value = null
 }
 
 function togglePause() {
@@ -105,6 +141,19 @@ const formattedElapsed = computed(() => {
         <dd>{{ store.state.seed }}</dd>
       </div>
     </dl>
+
+    <div
+      v-if="pendingAction"
+      class="discard-confirm"
+      role="alertdialog"
+      aria-label="Start a new game?"
+    >
+      <p class="prompt-title">Start a new game? Your current progress will be lost.</p>
+      <div class="prompt-actions">
+        <button type="button" class="btn" @click="confirmPendingAction">YES</button>
+        <button type="button" class="btn" @click="cancelPendingAction">NO</button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -155,5 +204,41 @@ const formattedElapsed = computed(() => {
 
 .stats dd {
   margin: 0;
+}
+
+/* Matches GameBoard.vue's .auto-complete-prompt look exactly, but this
+   component sits outside .game-board (a sibling, not a descendant), so
+   position: fixed is used instead of absolute to still cover the whole
+   viewport rather than just the toolbar's own bounding box. */
+.discard-confirm {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  background: rgba(0, 0, 0, 0.75);
+  color: var(--color-text-on-dark);
+  text-align: center;
+  padding: 1rem;
+}
+
+.prompt-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin: 0;
+}
+
+.prompt-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.prompt-actions button {
+  min-width: 5rem;
+  padding: 0.5rem 1.5rem;
+  font-size: 1rem;
 }
 </style>
