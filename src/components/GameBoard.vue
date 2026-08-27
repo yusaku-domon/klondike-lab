@@ -3,14 +3,17 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS, CARD_MOVE_ANIMATION_MS } from '../animationTiming'
 import type { Suit } from '../domain/cards'
 import { isFullyRevealed } from '../domain/autoComplete'
-import { getLegalDestinations, type PileRef } from '../domain/moves'
+import { getLegalDestinations, getMovingCards, type PileRef } from '../domain/moves'
 import { resolveClick, type ClickTarget } from '../domain/selection'
 import { useGameStore } from '../stores/game'
 import { useSettingsStore } from '../stores/settings'
 import {
   computeCardPositions,
   computeMovedCardIds,
+  exceedsDragThreshold,
+  hitTestDropTarget,
   TABLEAU_STACK_OFFSET_RATIO,
+  type CardPosition,
   type DestinationHighlightLevel,
   type HighlightLevel,
   type SlotLayout,
@@ -35,8 +38,127 @@ watch(
   () => store.gameEpoch,
   () => {
     selection.value = null
+    if (dragState.value) {
+      endDrag()
+      dragState.value = null
+    }
   },
 )
+
+// Pointer-drag ("grab and move") state — an alternative input path to the
+// click-based select/destination flow above, not a replacement: a
+// pointerdown that never moves past DRAG_THRESHOLD_PX is left alone so the
+// native click that follows it still drives the existing two-step
+// selection exactly as before. Only once movement crosses that threshold
+// does this take over, at which point it clears any click-based
+// `selection` so the two input methods can't both be "active" at once.
+interface DragState {
+  from: PileRef
+  cardIds: string[]
+  pointerId: number
+  startX: number
+  startY: number
+  dx: number
+  dy: number
+  startedDrag: boolean
+}
+
+const dragState = ref<DragState | null>(null)
+// Set for exactly one tick after a real drag ends, so the click event the
+// browser still fires right after that pointerup doesn't also re-toggle
+// selection on whatever the finger happened to land on.
+let suppressNextClick = false
+
+// Comfortably above CardAnimationLayer's own ANIMATING_Z_OFFSET (1000) so a
+// dragged card always wins even in the split second where a drop also
+// marks it as "animating" into its new resting spot.
+const DRAGGING_Z_OFFSET = 2000
+
+function endDrag() {
+  window.removeEventListener('pointermove', handlePointerMove)
+  window.removeEventListener('pointerup', handlePointerUp)
+  window.removeEventListener('pointercancel', handlePointerCancel)
+}
+
+function handleDragStart(from: PileRef, event: PointerEvent) {
+  if (!store.isPlayable || store.isAnimating || dragState.value) return
+  const movingCards = getMovingCards(store.state, from)
+  if (!movingCards) return
+
+  dragState.value = {
+    from,
+    cardIds: movingCards.map((card) => card.id),
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    dx: 0,
+    dy: 0,
+    startedDrag: false,
+  }
+
+  window.addEventListener('pointermove', handlePointerMove)
+  window.addEventListener('pointerup', handlePointerUp)
+  window.addEventListener('pointercancel', handlePointerCancel)
+}
+
+function handlePointerMove(event: PointerEvent) {
+  const drag = dragState.value
+  if (!drag || event.pointerId !== drag.pointerId) return
+
+  const dx = event.clientX - drag.startX
+  const dy = event.clientY - drag.startY
+
+  if (!drag.startedDrag && exceedsDragThreshold(dx, dy)) {
+    selection.value = null
+    dragState.value = { ...drag, dx, dy, startedDrag: true }
+    return
+  }
+
+  dragState.value = { ...drag, dx, dy }
+}
+
+function handlePointerUp(event: PointerEvent) {
+  const drag = dragState.value
+  if (!drag || event.pointerId !== drag.pointerId) return
+  endDrag()
+
+  if (!drag.startedDrag) {
+    // Movement never crossed the threshold — this was a tap, not a drag.
+    // Clear our own state and let the click event still coming handle
+    // selection, unchanged from before this feature existed.
+    dragState.value = null
+    return
+  }
+
+  suppressNextClick = true
+  const boardRect = boardEl.value?.getBoundingClientRect()
+  const to =
+    boardRect && slotLayout.value
+      ? hitTestDropTarget(
+          { x: event.clientX - boardRect.left, y: event.clientY - boardRect.top },
+          slotLayout.value,
+          cardWidthPx.value,
+          cardHeightPx.value,
+        )
+      : null
+
+  dragState.value = null
+  // store.move safely no-ops (returns false, no state change) for a
+  // geometrically-hit but rules-illegal destination — same guarantee
+  // click-based moves already rely on — so the dropped card's visual
+  // position simply falls back to its unchanged pile slot, which reads as
+  // a "snap back" for free via the same CSS transition normal moves use.
+  if (to && store.isPlayable && !store.isAnimating) {
+    store.move({ from: drag.from, to })
+  }
+}
+
+function handlePointerCancel(event: PointerEvent) {
+  const drag = dragState.value
+  if (!drag || event.pointerId !== drag.pointerId) return
+  endDrag()
+  dragState.value = null
+}
 
 // Live-measured slot positions, not fixed rem math: the top-row uses a
 // flexible spacer to push foundations to the right edge, so their real
@@ -58,6 +180,12 @@ function setTableauSlotEl(index: number, el: Element | null) {
 
 const slotLayout = ref<SlotLayout | null>(null)
 const stackOffsetPx = ref(0)
+// Real rendered card box size in px — needed (alongside slotLayout) to
+// hit-test where a drag was dropped, since --card-width/--card-height are a
+// responsive clamp() (see style.css), not a fixed rem convertible with a
+// single root-font-size constant.
+const cardWidthPx = ref(0)
+const cardHeightPx = ref(0)
 
 function measureSlots() {
   const boardRect = boardEl.value?.getBoundingClientRect()
@@ -82,11 +210,10 @@ function measureSlots() {
     tableau: tableauSlotEls.map((el) => relative(el!)),
   }
 
-  // --card-height is a responsive clamp(), not a fixed rem (see
-  // style.css), so the cascade offset has to come from the slot's actual
-  // rendered height rather than root font-size × a constant.
-  const cardHeightPx = stockSlotEl.value.getBoundingClientRect().height
-  stackOffsetPx.value = cardHeightPx * TABLEAU_STACK_OFFSET_RATIO
+  const cardRect = stockSlotEl.value.getBoundingClientRect()
+  cardWidthPx.value = cardRect.width
+  cardHeightPx.value = cardRect.height
+  stackOffsetPx.value = cardRect.height * TABLEAU_STACK_OFFSET_RATIO
 }
 
 let resizeObserver: ResizeObserver | null = null
@@ -103,11 +230,35 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
+  if (dragState.value) endDrag()
 })
 
 const cardPositions = computed(() => {
   if (!slotLayout.value) return new Map()
   return computeCardPositions(store.state, slotLayout.value, stackOffsetPx.value)
+})
+
+const draggingCardIds = computed<ReadonlySet<string>>(() =>
+  dragState.value?.startedDrag ? new Set(dragState.value.cardIds) : new Set(),
+)
+
+// What CardAnimationLayer actually renders: cardPositions above, with the
+// currently-dragged card(s) overridden to follow the pointer instead of
+// sitting at their (unchanged, since state hasn't moved yet) pile slot.
+// Dropping clears dragState, so this falls straight back to cardPositions —
+// which, combined with CardAnimationLayer's normal transition, is what
+// makes an illegal or missed drop "snap back" without any extra code.
+const displayedCardPositions = computed<Map<string, CardPosition>>(() => {
+  const drag = dragState.value
+  if (!drag?.startedDrag) return cardPositions.value
+
+  const overridden = new Map(cardPositions.value)
+  for (const id of drag.cardIds) {
+    const pos = overridden.get(id)
+    if (!pos) continue
+    overridden.set(id, { x: pos.x + drag.dx, y: pos.y + drag.dy, z: pos.z + DRAGGING_Z_OFFSET })
+  }
+  return overridden
 })
 
 // Auto-complete cascade steps animate faster than a manual move; every
@@ -161,6 +312,12 @@ onBeforeUnmount(() => {
 // opacity:0) ghost card underneath, is what the player actually sees, so
 // that's where this has to be applied to be visible at all.
 const legalDestinations = computed<PileRef[]>(() => {
+  // An in-progress drag always shows its legal destinations — this is the
+  // drag's own direct feedback, not the optional click-based hint the
+  // moveNavigationEnabled setting gates below.
+  if (dragState.value?.startedDrag) {
+    return getLegalDestinations(store.state, dragState.value.from)
+  }
   if (!settings.moveNavigationEnabled || !selection.value) return []
   return getLegalDestinations(store.state, selection.value)
 })
@@ -232,6 +389,13 @@ function dismissAutoCompletePrompt() {
 }
 
 function handleClick(target: ClickTarget) {
+  // The click that the browser fires right after a real drag's pointerup —
+  // suppressed so it can't also toggle selection on whatever the finger
+  // happened to land on.
+  if (suppressNextClick) {
+    suppressNextClick = false
+    return
+  }
   if (!store.isPlayable || store.isAnimating) return
 
   if (target.type === 'stock') {
@@ -297,6 +461,7 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
           :selected="isSelected({ type: 'waste' })"
           :card-design="settings.cardDesign"
           @click="handleClick({ type: 'waste' })"
+          @dragstart="(event) => handleDragStart({ type: 'waste' }, event)"
         />
       </div>
       <div class="spacer" />
@@ -313,6 +478,7 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
           :highlight="foundationHighlight(suit)"
           :card-design="settings.cardDesign"
           @click="handleClick({ type: 'foundation', suit })"
+          @dragstart="(event) => handleDragStart({ type: 'foundation', suit }, event)"
         />
       </div>
     </div>
@@ -331,6 +497,9 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
           :highlight="tableauHighlight(columnIndex)"
           :card-design="settings.cardDesign"
           @select="(cardIndex) => handleClick({ type: 'tableau', column: columnIndex, cardIndex })"
+          @dragstart="
+            (cardIndex, event) => handleDragStart({ type: 'tableau', column: columnIndex, cardIndex }, event)
+          "
         />
       </div>
     </div>
@@ -338,9 +507,10 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
     <CardAnimationLayer
       v-if="slotLayout"
       :state="store.state"
-      :positions="cardPositions"
+      :positions="displayedCardPositions"
       :selected-card-ids="selectedCardIds"
       :animating-card-ids="animatingCardIds"
+      :dragging-card-ids="draggingCardIds"
       :destination-highlights="destinationCardHighlights"
       :animation-duration-ms="cardAnimationDurationMs"
       :card-design="settings.cardDesign"

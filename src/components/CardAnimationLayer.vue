@@ -23,9 +23,15 @@ const props = withDefaults(
      * picks CARD_MOVE_ANIMATION_MS or AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS —
      * this layer just renders whatever it's given. */
     animationDurationMs: number
+    /** Cards currently following a pointer mid-drag: their transform must
+     * track the finger 1:1 with no transition lag, unlike every other
+     * card's animated move. Positions themselves are still supplied by
+     * `positions` — GameBoard.vue overrides those, this only removes the
+     * transition for the ones it overrode. */
+    draggingCardIds?: ReadonlySet<string>
     cardDesign?: CardDesign
   }>(),
-  { cardDesign: 'classic' },
+  { cardDesign: 'classic', draggingCardIds: () => new Set() },
 )
 
 function destinationHighlightClass(id: string): string | undefined {
@@ -73,7 +79,7 @@ const cardsById = computed<Map<string, Card>>(() => {
         transform: `translate(${positions.get(id)?.x ?? 0}px, ${positions.get(id)?.y ?? 0}px)`,
         zIndex:
           (positions.get(id)?.z ?? 0) + (animatingCardIds.has(id) ? ANIMATING_Z_OFFSET : 0),
-        transitionDuration: `${props.animationDurationMs}ms`,
+        transitionDuration: props.draggingCardIds.has(id) ? '0ms' : `${props.animationDurationMs}ms`,
       }"
     >
       <PlayingCard

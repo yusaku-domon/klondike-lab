@@ -20,7 +20,7 @@ const props = withDefaults(
   }>(),
   { highlight: 'none', cardDesign: 'classic' },
 )
-defineEmits<{ click: [] }>()
+defineEmits<{ click: []; dragstart: [event: PointerEvent] }>()
 
 const topCard = computed<Card | null>(() => props.pile[props.pile.length - 1] ?? null)
 const suitSymbol = computed(() => SUIT_SYMBOLS[props.suit])
@@ -36,6 +36,7 @@ const highlightClass = computed(() => (props.highlight !== 'none' ? `nav-${props
     interactive
     ghost
     @select="$emit('click')"
+    @pointerdown="$emit('dragstart', $event)"
   />
   <button
     v-else

@@ -144,4 +144,46 @@ describe('CardAnimationLayer', () => {
     expect(classesOf(wrapper, '9 of Hearts')).not.toContain('nav-weak')
     expect(classesOf(wrapper, '9 of Hearts')).not.toContain('nav-strong')
   })
+
+  function transitionDurationOf(wrapper: ReturnType<typeof mount>, ariaLabel: string): string | undefined {
+    const wrappers = wrapper.findAll('.card-wrapper')
+    const el = wrappers.find((w) => w.find(`[aria-label*="${ariaLabel}"]`).exists())
+    return el?.attributes('style')?.match(/transition-duration:\s*([^;]+);/)?.[1]
+  }
+
+  it('removes the transition for a dragging card so it tracks the pointer with no lag, leaving everything else animated', () => {
+    const state = emptyState({
+      tableau: [[createCard('hearts', 9, true)], [createCard('clubs', 6, true)], [], [], [], [], []],
+    })
+
+    const wrapper = mount(CardAnimationLayer, {
+      props: {
+        state,
+        positions: new Map(),
+        selectedCardIds: new Set<string>(),
+        animatingCardIds: new Set<string>(),
+        draggingCardIds: new Set(['hearts-9']),
+        destinationHighlights: new Map(),
+        animationDurationMs: CARD_MOVE_ANIMATION_MS,
+      },
+    })
+
+    expect(transitionDurationOf(wrapper, '9 of Hearts')).toBe('0ms')
+    expect(transitionDurationOf(wrapper, '6 of Clubs')).toBe(`${CARD_MOVE_ANIMATION_MS}ms`)
+  })
+
+  it('defaults every card to the normal animation duration when draggingCardIds is omitted', () => {
+    const wrapper = mount(CardAnimationLayer, {
+      props: {
+        state: emptyState({ waste: [createCard('hearts', 1, true)] }),
+        positions: new Map(),
+        selectedCardIds: new Set<string>(),
+        animatingCardIds: new Set<string>(),
+        destinationHighlights: new Map(),
+        animationDurationMs: CARD_MOVE_ANIMATION_MS,
+      },
+    })
+
+    expect(transitionDurationOf(wrapper, 'A of Hearts')).toBe(`${CARD_MOVE_ANIMATION_MS}ms`)
+  })
 })

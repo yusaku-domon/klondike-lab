@@ -1,5 +1,6 @@
 import { SUITS, type Suit } from '../domain/cards'
 import type { GameState } from '../domain/deal'
+import type { MoveCommand } from '../domain/moves'
 
 // TableauColumn's own internal cascade offset, as a fraction of
 // --card-height rather than a fixed rem — imported by TableauColumn itself
@@ -77,6 +78,58 @@ export function computeCardPositions(
   })
 
   return positions
+}
+
+// Smaller than a real drag needs to feel deliberate, larger than the jitter
+// a finger or mouse produces holding still — below this, a pointerdown+up
+// is treated as a plain tap (the existing click-based selection handles
+// it), not a drag.
+export const DRAG_THRESHOLD_PX = 8
+
+export function exceedsDragThreshold(dx: number, dy: number): boolean {
+  return Math.hypot(dx, dy) >= DRAG_THRESHOLD_PX
+}
+
+function isWithinSlot(
+  point: SlotPosition,
+  slot: SlotPosition,
+  width: number,
+  height: number,
+): boolean {
+  return (
+    point.x >= slot.x && point.x <= slot.x + width && point.y >= slot.y && point.y <= slot.y + height
+  )
+}
+
+/**
+ * Which pile (if any) a drag ended over, given a board-relative drop point
+ * and the same measured `SlotLayout` the animation layer positions cards
+ * with. Foundations are tested as their own compact slot; a tableau column
+ * has no fixed bottom edge (it grows as cards land in it), so a drop
+ * anywhere in its horizontal lane at or below its slot counts — the player
+ * doesn't have to land pixel-precisely on the last stacked card. Waste and
+ * stock are never drop targets, matching MoveCommand['to']'s own type.
+ */
+export function hitTestDropTarget(
+  point: SlotPosition,
+  slots: SlotLayout,
+  cardWidthPx: number,
+  cardHeightPx: number,
+): MoveCommand['to'] | null {
+  for (const suit of SUITS) {
+    if (isWithinSlot(point, slots.foundations[suit], cardWidthPx, cardHeightPx)) {
+      return { type: 'foundation', suit }
+    }
+  }
+
+  for (let column = 0; column < slots.tableau.length; column++) {
+    const slot = slots.tableau[column]!
+    if (point.x >= slot.x && point.x <= slot.x + cardWidthPx && point.y >= slot.y) {
+      return { type: 'tableau', column }
+    }
+  }
+
+  return null
 }
 
 function buildLocationMap(state: GameState): Map<string, string> {

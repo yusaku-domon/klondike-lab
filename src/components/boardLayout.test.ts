@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { emptyState } from '../testFixtures'
 import { createCard } from '../domain/cards'
-import { computeCardPositions, computeMovedCardIds, type SlotLayout } from './boardLayout'
+import {
+  computeCardPositions,
+  computeMovedCardIds,
+  DRAG_THRESHOLD_PX,
+  exceedsDragThreshold,
+  hitTestDropTarget,
+  type SlotLayout,
+} from './boardLayout'
+
+const CARD_WIDTH_PX = 72
+const CARD_HEIGHT_PX = 104
 
 const fakeSlots: SlotLayout = {
   stock: { x: 0, y: 0 },
@@ -123,5 +133,58 @@ describe('computeMovedCardIds', () => {
     const after = emptyState({ stock: [...cards].reverse().map((c) => ({ ...c, faceUp: false })) })
 
     expect(computeMovedCardIds(before, after)).toEqual(new Set(['clubs-1', 'clubs-2']))
+  })
+})
+
+describe('exceedsDragThreshold', () => {
+  it('is false for movement under the threshold, in any direction', () => {
+    expect(exceedsDragThreshold(0, 0)).toBe(false)
+    expect(exceedsDragThreshold(DRAG_THRESHOLD_PX - 1, 0)).toBe(false)
+    expect(exceedsDragThreshold(0, -(DRAG_THRESHOLD_PX - 1))).toBe(false)
+  })
+
+  it('is true once the straight-line distance reaches the threshold', () => {
+    expect(exceedsDragThreshold(DRAG_THRESHOLD_PX, 0)).toBe(true)
+    expect(exceedsDragThreshold(0, DRAG_THRESHOLD_PX)).toBe(true)
+    expect(exceedsDragThreshold(DRAG_THRESHOLD_PX + 1, DRAG_THRESHOLD_PX + 1)).toBe(true)
+  })
+
+  it('combines both axes as a straight-line distance, not per-axis', () => {
+    // Neither axis alone reaches an 8px threshold, but the 3-4-5 triangle's
+    // hypotenuse (5) still falls short of it — regression guard against an
+    // implementation that only checked one axis.
+    expect(exceedsDragThreshold(3, 4)).toBe(false)
+  })
+})
+
+describe('hitTestDropTarget', () => {
+  it('finds the foundation slot the point falls inside', () => {
+    const point = { x: 684 + 10, y: 10 }
+    expect(hitTestDropTarget(point, fakeSlots, CARD_WIDTH_PX, CARD_HEIGHT_PX)).toEqual({
+      type: 'foundation',
+      suit: 'diamonds',
+    })
+  })
+
+  it('finds the tableau column whose lane the point falls in, regardless of how far down', () => {
+    const nearTop = { x: 252 + 10, y: 136 }
+    const farBelowAnyStackedCard = { x: 252 + 10, y: 136 + 2000 }
+
+    expect(hitTestDropTarget(nearTop, fakeSlots, CARD_WIDTH_PX, CARD_HEIGHT_PX)).toEqual({
+      type: 'tableau',
+      column: 3,
+    })
+    expect(hitTestDropTarget(farBelowAnyStackedCard, fakeSlots, CARD_WIDTH_PX, CARD_HEIGHT_PX)).toEqual(
+      { type: 'tableau', column: 3 },
+    )
+  })
+
+  it('returns null for a point over the stock or waste (never valid move destinations)', () => {
+    expect(hitTestDropTarget({ x: 10, y: 10 }, fakeSlots, CARD_WIDTH_PX, CARD_HEIGHT_PX)).toBeNull()
+    expect(hitTestDropTarget({ x: 90, y: 10 }, fakeSlots, CARD_WIDTH_PX, CARD_HEIGHT_PX)).toBeNull()
+  })
+
+  it('returns null for a point above the tableau row and outside every foundation slot', () => {
+    expect(hitTestDropTarget({ x: 300, y: 10 }, fakeSlots, CARD_WIDTH_PX, CARD_HEIGHT_PX)).toBeNull()
   })
 })

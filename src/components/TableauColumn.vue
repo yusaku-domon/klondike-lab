@@ -20,7 +20,10 @@ const props = withDefaults(
   { highlight: 'none', cardDesign: 'classic' },
 )
 
-const emit = defineEmits<{ select: [cardIndex: number | null] }>()
+const emit = defineEmits<{
+  select: [cardIndex: number | null]
+  dragstart: [cardIndex: number, event: PointerEvent]
+}>()
 
 function isSelected(index: number): boolean {
   return props.selectedFromIndex !== null && index >= props.selectedFromIndex
@@ -55,6 +58,7 @@ function isSelected(index: number): boolean {
         :card-design="cardDesign"
         ghost
         @select="emit('select', index)"
+        @pointerdown="(event: PointerEvent) => emit('dragstart', index, event)"
       />
     </div>
   </div>

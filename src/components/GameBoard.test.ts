@@ -850,4 +850,220 @@ describe('GameBoard', () => {
       expect(navClasses(wrapper)).toEqual([])
     })
   })
+
+  describe('drag-to-move', () => {
+    const CARD_W = 72
+    const CARD_H = 104
+    const PITCH = 84 // card width + the fixed test gap between slots
+
+    // GameBoard measures real layout via getBoundingClientRect, which
+    // jsdom always reports as all-zero — fine for the click-based tests
+    // above (they never read coordinates), but drag hit-testing needs
+    // real, distinguishable slot rects. Position is derived purely from a
+    // slot's index among its `.pile-slot` siblings, so this doesn't care
+    // which specific piles exist in a given test's state.
+    function mockPileRects() {
+      return vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        const empty = { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0, toJSON() {} }
+        if (this.classList?.contains('game-board')) {
+          return { ...empty, right: 900, bottom: 600, width: 900, height: 600 }
+        }
+        if (this.classList?.contains('pile-slot')) {
+          const parent = this.parentElement
+          if (!parent) return empty
+          const pileSlots = Array.from(parent.children).filter((el) => el.classList.contains('pile-slot'))
+          const index = pileSlots.indexOf(this)
+          const y = parent.classList.contains('tableau-row') ? 200 : 0
+          const x = index * PITCH
+          return { ...empty, left: x, top: y, right: x + CARD_W, bottom: y + CARD_H, width: CARD_W, height: CARD_H, x, y }
+        }
+        return empty
+      }) as unknown as ReturnType<typeof vi.spyOn>
+    }
+
+    let rectSpy: ReturnType<typeof mockPileRects>
+    let activeWrapper: ReturnType<typeof mount> | null = null
+
+    beforeEach(() => {
+      rectSpy = mockPileRects()
+    })
+
+    afterEach(() => {
+      rectSpy.mockRestore()
+      // Real DOM connectivity (attachTo: document.body) is what lets a
+      // dispatched pointer event bubble up to this feature's
+      // window-level move/up listeners — but that means each mounted
+      // board must also be torn down, or a leftover instance's listeners
+      // (and stale nodes) bleed into the next test.
+      activeWrapper?.unmount()
+      activeWrapper = null
+      document.body.innerHTML = ''
+    })
+
+    function mountAttachedBoard() {
+      const pinia = createPinia()
+      setActivePinia(pinia)
+      const store = useGameStore()
+      const wrapper = mount(GameBoard, { global: { plugins: [pinia] }, attachTo: document.body })
+      activeWrapper = wrapper
+      return { wrapper, store }
+    }
+
+    // Top row order: stock(0) waste(1) clubs(2) diamonds(3) hearts(4) spades(5) → y=0
+    const WASTE_X = 1 * PITCH
+    const FOUNDATION_X: Record<'clubs' | 'diamonds' | 'hearts' | 'spades', number> = {
+      clubs: 2 * PITCH,
+      diamonds: 3 * PITCH,
+      hearts: 4 * PITCH,
+      spades: 5 * PITCH,
+    }
+    const TABLEAU_Y = 200
+
+    // vue-test-utils' trigger() can't set clientX/clientY on a jsdom
+    // MouseEvent (they're getter-only on the prototype, so its generic
+    // property-copy throws) — construct the event ourselves instead,
+    // setting clientX/clientY via the constructor (which does work) and
+    // pointerId as a plain extra property.
+    function firePointerEvent(
+      el: Element,
+      type: 'pointerdown' | 'pointermove' | 'pointerup',
+      point: { x: number; y: number },
+      pointerId = 1,
+    ) {
+      const event = new MouseEvent(type, { bubbles: true, cancelable: true, clientX: point.x, clientY: point.y })
+      Object.defineProperty(event, 'pointerId', { value: pointerId })
+      el.dispatchEvent(event)
+    }
+
+    async function drag(
+      wrapper: ReturnType<typeof mountAttachedBoard>['wrapper'],
+      fromTestId: string,
+      from: { x: number; y: number },
+      to: { x: number; y: number },
+    ) {
+      const el = wrapper.get(`[data-testid="${fromTestId}"]`).element
+      firePointerEvent(el, 'pointerdown', from)
+      firePointerEvent(el, 'pointermove', to)
+      firePointerEvent(el, 'pointerup', to)
+      await wrapper.vm.$nextTick()
+    }
+
+    it('drags a waste card onto a legal foundation and applies the move', async () => {
+      const { wrapper, store } = mountAttachedBoard()
+      store.state = emptyState({ waste: [createCard('hearts', 1, true)] })
+      await wrapper.vm.$nextTick()
+
+      await drag(
+        wrapper,
+        'card-hearts-1',
+        { x: WASTE_X + 10, y: 10 },
+        { x: FOUNDATION_X.hearts + 10, y: 10 },
+      )
+
+      expect(store.state.foundations.hearts).toEqual([createCard('hearts', 1, true)])
+      expect(store.state.waste).toEqual([])
+    })
+
+    it('leaves the board unchanged when dropped on an illegal destination', async () => {
+      const { wrapper, store } = mountAttachedBoard()
+      store.state = emptyState({ waste: [createCard('hearts', 1, true)] })
+      await wrapper.vm.$nextTick()
+
+      // Wrong suit for the clubs foundation.
+      await drag(
+        wrapper,
+        'card-hearts-1',
+        { x: WASTE_X + 10, y: 10 },
+        { x: FOUNDATION_X.clubs + 10, y: 10 },
+      )
+
+      expect(store.state.waste).toEqual([createCard('hearts', 1, true)])
+      expect(store.state.foundations.clubs).toEqual([])
+    })
+
+    it('drags a tableau card onto an empty column', async () => {
+      const { wrapper, store } = mountAttachedBoard()
+      store.state = emptyState({
+        tableau: [[createCard('clubs', 13, true)], [], [], [], [], [], []],
+      })
+      await wrapper.vm.$nextTick()
+
+      await drag(
+        wrapper,
+        'card-clubs-13',
+        { x: 0 * PITCH + 10, y: TABLEAU_Y + 10 },
+        { x: 1 * PITCH + 10, y: TABLEAU_Y + 10 },
+      )
+
+      expect(store.state.tableau[0]).toEqual([])
+      expect(store.state.tableau[1]).toEqual([createCard('clubs', 13, true)])
+    })
+
+    it('drops anywhere in a column below its slot, not just on its top card', async () => {
+      const { wrapper, store } = mountAttachedBoard()
+      store.state = emptyState({
+        tableau: [[createCard('clubs', 13, true)], [], [], [], [], [], []],
+      })
+      await wrapper.vm.$nextTick()
+
+      await drag(
+        wrapper,
+        'card-clubs-13',
+        { x: 0 * PITCH + 10, y: TABLEAU_Y + 10 },
+        { x: 1 * PITCH + 10, y: TABLEAU_Y + 2000 },
+      )
+
+      expect(store.state.tableau[1]).toEqual([createCard('clubs', 13, true)])
+    })
+
+    it('does not start a drag for a non-draggable source, and applying no move leaves state untouched', async () => {
+      const { wrapper, store } = mountAttachedBoard()
+      store.state = emptyState({ stock: [createCard('spades', 1, false)] })
+      await wrapper.vm.$nextTick()
+      const before = store.state
+
+      await drag(
+        wrapper,
+        'stock-pile',
+        { x: 10, y: 10 },
+        { x: FOUNDATION_X.spades + 10, y: 10 },
+      )
+
+      expect(store.state).toBe(before)
+    })
+
+    it('movement under the threshold is a tap, not a drag: the click that follows still selects normally', async () => {
+      const { wrapper, store } = mountAttachedBoard()
+      store.state = emptyState({ waste: [createCard('hearts', 5, true)] })
+      await wrapper.vm.$nextTick()
+
+      const card = wrapper.get('[data-testid="card-hearts-5"]')
+      firePointerEvent(card.element, 'pointerdown', { x: WASTE_X + 10, y: 10 })
+      firePointerEvent(card.element, 'pointermove', { x: WASTE_X + 12, y: 11 })
+      firePointerEvent(card.element, 'pointerup', { x: WASTE_X + 12, y: 11 })
+      await wrapper.vm.$nextTick()
+      await card.trigger('click')
+
+      expect(card.attributes('aria-pressed')).toBe('true')
+      expect(store.state.waste).toEqual([createCard('hearts', 5, true)])
+    })
+
+    it('highlights the legal destination while a drag is in progress, before it is dropped', async () => {
+      const { wrapper, store } = mountAttachedBoard()
+      store.state = emptyState({ waste: [createCard('hearts', 1, true)] })
+      await wrapper.vm.$nextTick()
+
+      const card = wrapper.get('[data-testid="card-hearts-1"]')
+      firePointerEvent(card.element, 'pointerdown', { x: WASTE_X + 10, y: 10 })
+      firePointerEvent(card.element, 'pointermove', { x: FOUNDATION_X.hearts + 10, y: 10 })
+      await wrapper.vm.$nextTick()
+
+      // An ace has exactly one legal destination (its own empty foundation
+      // — an empty tableau column only ever accepts a King), so this
+      // should be the 'strong' single-destination highlight.
+      expect(wrapper.get('[data-testid="foundation-empty-hearts"]').classes()).toContain('nav-strong')
+    })
+  })
 })

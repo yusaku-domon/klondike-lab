@@ -109,6 +109,11 @@ const ariaLabel = computed(() => {
 
 .playing-card.interactive {
   cursor: pointer;
+  /* Without these, a touch-drag gesture on a card fights the browser's own
+     scroll/text-selection handling instead of reaching our pointermove
+     handler cleanly. */
+  touch-action: none;
+  user-select: none;
 }
 
 .playing-card.selected {

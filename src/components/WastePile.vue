@@ -8,7 +8,7 @@ const props = withDefaults(
   defineProps<{ waste: Card[]; selected: boolean; cardDesign?: CardDesign }>(),
   { cardDesign: 'classic' },
 )
-defineEmits<{ click: [] }>()
+defineEmits<{ click: []; dragstart: [event: PointerEvent] }>()
 
 const topCard = computed<Card | null>(() => props.waste[props.waste.length - 1] ?? null)
 </script>
@@ -22,6 +22,7 @@ const topCard = computed<Card | null>(() => props.waste[props.waste.length - 1] 
     interactive
     ghost
     @select="$emit('click')"
+    @pointerdown="$emit('dragstart', $event)"
   />
   <button
     v-else
