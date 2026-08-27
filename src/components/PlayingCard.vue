@@ -122,7 +122,10 @@ const ariaLabel = computed(() => {
 }
 
 .corner {
-  font-size: 1rem;
+  /* 1rem at the 4.5rem desktop --card-width (see style.css) — proportional
+     so text keeps the same relative size as the card shrinks on narrow
+     viewports instead of overflowing a smaller box. */
+  font-size: calc(var(--card-width) * 2 / 9);
   line-height: 1;
   font-weight: bold;
 }
@@ -133,7 +136,8 @@ const ariaLabel = computed(() => {
 }
 
 .suit-symbol-large {
-  font-size: 1.8rem;
+  /* 1.8rem at the 4.5rem desktop --card-width — see .corner above. */
+  font-size: calc(var(--card-width) * 2 / 5);
   text-align: center;
 }
 </style>

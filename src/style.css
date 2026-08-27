@@ -22,8 +22,15 @@
   --color-button-text: #1a1a1a;
   --color-button-shadow: #9a9a9a;
 
-  --card-width: 4.5rem;
-  --card-height: 6.5rem;
+  /* clamp()'s preferred value is the exact --card-width at which 7 tableau
+     columns + 6 gaps (each 1/6 of a card width, see GameBoard.vue) + the
+     board's own padding (1/3 of a card width on each side) fill 100vw
+     precisely — solving 7w + 6(w/6) + 2(w/3) = 100vw for w gives
+     w = (150/13)vw. Below the floor a phone gets a smaller-than-ideal but
+     still legible card rather than an ever-shrinking one; above the
+     ceiling every value below reduces to today's fixed desktop size. */
+  --card-width: clamp(2rem, calc(150vw / 13), 4.5rem);
+  --card-height: calc(var(--card-width) * 13 / 9);
 
   /* Stacking for whole overlay layers (win banner, prompts, the pause
      overlay, and the card-animation layer beneath them) — distinct from

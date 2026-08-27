@@ -10,7 +10,7 @@ import { useSettingsStore } from '../stores/settings'
 import {
   computeCardPositions,
   computeMovedCardIds,
-  TABLEAU_STACK_OFFSET_REM,
+  TABLEAU_STACK_OFFSET_RATIO,
   type DestinationHighlightLevel,
   type HighlightLevel,
   type SlotLayout,
@@ -82,8 +82,11 @@ function measureSlots() {
     tableau: tableauSlotEls.map((el) => relative(el!)),
   }
 
-  const remPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
-  stackOffsetPx.value = TABLEAU_STACK_OFFSET_REM * remPx
+  // --card-height is a responsive clamp(), not a fixed rem (see
+  // style.css), so the cascade offset has to come from the slot's actual
+  // rendered height rather than root font-size × a constant.
+  const cardHeightPx = stockSlotEl.value.getBoundingClientRect().height
+  stackOffsetPx.value = cardHeightPx * TABLEAU_STACK_OFFSET_RATIO
 }
 
 let resizeObserver: ResizeObserver | null = null
@@ -383,14 +386,18 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
   flex: 1;
   flex-direction: column;
   gap: 2rem;
-  padding: 1.5rem;
+  /* Kept as 1/3 of --card-width (matching --card-width's own clamp() math
+     in style.css) rather than a fixed rem, so the board's edge margin
+     shrinks in step with the cards instead of eating into the width the
+     7-column fit calculation already accounts for. */
+  padding: calc(var(--card-width) / 3);
   background: var(--color-felt);
   box-sizing: border-box;
 }
 
 .top-row {
   display: flex;
-  gap: 0.75rem;
+  gap: calc(var(--card-width) / 6);
 }
 
 .spacer {
@@ -403,7 +410,7 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
 
 .tableau-row {
   display: flex;
-  gap: 0.75rem;
+  gap: calc(var(--card-width) / 6);
 }
 
 .win-banner {

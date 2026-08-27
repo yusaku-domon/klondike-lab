@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Card } from '../domain/cards'
 import type { CardDesign } from '../persistence/settingsStorage'
-import { TABLEAU_STACK_OFFSET_REM, type HighlightLevel } from './boardLayout'
+import { TABLEAU_STACK_OFFSET_RATIO, type HighlightLevel } from './boardLayout'
 import PlayingCard from './PlayingCard.vue'
 
 const props = withDefaults(
@@ -46,7 +46,7 @@ function isSelected(index: number): boolean {
       v-for="(card, index) in column"
       :key="card.id"
       class="card-slot"
-      :style="{ top: `${index * TABLEAU_STACK_OFFSET_REM}rem` }"
+      :style="{ top: `calc(var(--card-height) * ${index * TABLEAU_STACK_OFFSET_RATIO})` }"
     >
       <PlayingCard
         :card="card"
