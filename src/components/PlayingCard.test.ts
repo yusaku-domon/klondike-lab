@@ -32,7 +32,9 @@ describe('PlayingCard', () => {
 
       expect(wrapper.find('.corner').exists()).toBe(false)
       expect(wrapper.find('.suit-symbol-large').exists()).toBe(false)
-      expect(wrapper.get('img').attributes('src')).toBe('/cards/saulspatz/diamonds-10.svg')
+      expect(wrapper.get('img').attributes('src')).toBe(
+        `${import.meta.env.BASE_URL}cards/saulspatz/diamonds-10.svg`,
+      )
     })
 
     it('renders the shared back image for a face-down card', () => {
@@ -40,7 +42,9 @@ describe('PlayingCard', () => {
         props: { card: createCard('clubs', 3, false), cardDesign: 'saulspatz' },
       })
 
-      expect(wrapper.get('img').attributes('src')).toBe('/cards/saulspatz/back.svg')
+      expect(wrapper.get('img').attributes('src')).toBe(
+        `${import.meta.env.BASE_URL}cards/saulspatz/back.svg`,
+      )
     })
   })
 

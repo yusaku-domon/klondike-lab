@@ -13,6 +13,8 @@ const ariaLabel = computed(() => {
   if (props.wasteCount > 0) return 'Stock is empty. Click to move the waste pile back to the stock.'
   return 'Stock is empty'
 })
+
+const backImageSrc = computed(() => `${import.meta.env.BASE_URL}cards/${props.cardDesign}/back.svg`)
 </script>
 
 <template>
@@ -26,7 +28,7 @@ const ariaLabel = computed(() => {
     <span v-if="stockCount > 0 && cardDesign === 'classic'" class="card-back" aria-hidden="true" />
     <img
       v-else-if="stockCount > 0"
-      :src="`/cards/${cardDesign}/back.svg`"
+      :src="backImageSrc"
       alt=""
       class="card-back-image"
     />

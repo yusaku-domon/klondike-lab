@@ -15,8 +15,8 @@ const props = defineProps<{
 // output and the PWA's existing svg precache glob picks them up for free.
 const src = computed(() =>
   props.card.faceUp
-    ? `/cards/${props.deck}/${props.card.suit}-${props.card.rank}.svg`
-    : `/cards/${props.deck}/back.svg`,
+    ? `${import.meta.env.BASE_URL}cards/${props.deck}/${props.card.suit}-${props.card.rank}.svg`
+    : `${import.meta.env.BASE_URL}cards/${props.deck}/back.svg`,
 )
 </script>
 

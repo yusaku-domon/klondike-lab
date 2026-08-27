@@ -3,19 +3,17 @@ import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  base: '/klondike-lab/',
   plugins: [
     vue(),
     VitePWA({
       registerType: 'prompt',
       strategies: 'generateSW',
       manifest: {
-        id: '/',
         name: 'Klondike Lab',
         short_name: 'Klondike Lab',
         description: 'An offline-first Klondike Solitaire game',
         lang: 'en',
-        start_url: '/',
-        scope: '/',
         display: 'standalone',
         background_color: '#0f7a44',
         theme_color: '#0b3d24',
