@@ -39,6 +39,15 @@
   --z-card-layer: 1;
   --z-overlay: 2;
   --z-dropdown: 3;
+  /* .game-board has position: relative but no z-index of its own, so it
+     never establishes its own stacking context — its --z-overlay children
+     (pause/auto-complete/win) end up competing directly with anything
+     outside it that also uses --z-overlay, with ties broken by DOM order.
+     GameToolbar.vue's discard-confirmation needs to win that unconditionally
+     (it must block interaction with whatever's on the board, including
+     another --z-overlay prompt), hence its own higher tier instead of
+     reusing --z-overlay. */
+  --z-blocking-overlay: 4;
 
   --card-back-pattern: repeating-linear-gradient(
     45deg,

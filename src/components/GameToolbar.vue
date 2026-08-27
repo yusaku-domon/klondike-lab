@@ -213,7 +213,7 @@ const formattedElapsed = computed(() => {
 .discard-confirm {
   position: fixed;
   inset: 0;
-  z-index: var(--z-overlay);
+  z-index: var(--z-blocking-overlay);
   display: flex;
   flex-direction: column;
   align-items: center;
