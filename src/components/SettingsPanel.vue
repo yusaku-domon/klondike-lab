@@ -44,7 +44,7 @@ onBeforeUnmount(() => {
       :aria-expanded="isOpen"
       @click="toggleOpen"
     >
-      ⚙️
+      ⚙
     </button>
 
     <div v-if="isOpen" class="panel" role="region" aria-label="Settings">
@@ -79,6 +79,12 @@ onBeforeUnmount(() => {
 .icon-btn {
   min-width: 2.75rem;
   padding: 0.5rem;
+  /* Press Start 2P ships a proper pixel-art gear glyph, not just Latin
+     text — confirmed by rendering it and checking it wasn't silently
+     falling back to the system font. font-weight: 400 for the same
+     reason as GameBoard.vue's .win-title: this font has one weight. */
+  font-family: 'Press Start 2P', monospace;
+  font-weight: 400;
   font-size: 1.25rem;
   line-height: 1;
 }

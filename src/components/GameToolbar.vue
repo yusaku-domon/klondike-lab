@@ -100,7 +100,7 @@ const formattedElapsed = computed(() => {
         :disabled="!store.canUndo || store.isAnimating"
         @click="handleUndo"
       >
-        ↩️
+        ↩
       </button>
       <button
         type="button"
@@ -109,7 +109,7 @@ const formattedElapsed = computed(() => {
         :disabled="store.isWon"
         @click="togglePause"
       >
-        {{ store.state.status === 'paused' ? '▶️' : '⏸️' }}
+        {{ store.state.status === 'paused' ? '▶' : '⏸' }}
       </button>
       <button
         type="button"
@@ -190,6 +190,12 @@ const formattedElapsed = computed(() => {
 .icon-btn {
   min-width: 2.75rem;
   padding: 0.5rem;
+  /* Press Start 2P actually ships proper pixel-art glyphs for ↩/⏸/▶ (not
+     just Latin text) — confirmed by rendering each one and checking it
+     wasn't silently falling back to the system font. font-weight: 400 for
+     the same reason as .win-title/.pause-title: this font has one weight. */
+  font-family: 'Press Start 2P', monospace;
+  font-weight: 400;
   font-size: 1.25rem;
   line-height: 1;
 }
