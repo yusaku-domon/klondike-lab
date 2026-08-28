@@ -124,4 +124,32 @@ describe('GameToolbar', () => {
       expect(store.state.moveCount).toBe(0)
     })
   })
+
+  describe('abbreviated/icon action buttons keep their full accessible name', () => {
+    it('labels New, Undo, Pause, and Auto with their un-abbreviated aria-label', () => {
+      const { wrapper } = mountToolbar()
+      const [newGame, undo, pause, auto] = wrapper.findAll('.actions .btn')
+
+      expect(newGame.attributes('aria-label')).toBe('New Game')
+      expect(undo.attributes('aria-label')).toBe('Undo')
+      expect(pause.attributes('aria-label')).toBe('Pause')
+      expect(auto.attributes('aria-label')).toBe('Auto Complete')
+    })
+
+    it("relabels Pause's icon button to Resume once the game is paused", async () => {
+      const { wrapper, store } = mountToolbar()
+      store.pause()
+      await wrapper.vm.$nextTick()
+
+      const [, , pause] = wrapper.findAll('.actions .btn')
+      expect(pause.attributes('aria-label')).toBe('Resume')
+    })
+
+    it('labels the Settings toggle button', () => {
+      const { wrapper } = mountToolbar()
+      const settingsButton = wrapper.findAll('.actions .btn').at(-1)
+
+      expect(settingsButton?.attributes('aria-label')).toBe('Settings')
+    })
+  })
 })

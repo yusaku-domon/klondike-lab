@@ -38,12 +38,13 @@ onBeforeUnmount(() => {
   <div ref="rootEl" class="settings-panel">
     <button
       type="button"
-      class="btn"
+      class="btn icon-btn"
+      aria-label="Settings"
       aria-haspopup="true"
       :aria-expanded="isOpen"
       @click="toggleOpen"
     >
-      Settings
+      ⚙️
     </button>
 
     <div v-if="isOpen" class="panel" role="region" aria-label="Settings">
@@ -73,6 +74,13 @@ onBeforeUnmount(() => {
 <style scoped>
 .settings-panel {
   position: relative;
+}
+
+.icon-btn {
+  min-width: 2.75rem;
+  padding: 0.5rem;
+  font-size: 1.25rem;
+  line-height: 1;
 }
 
 .panel {

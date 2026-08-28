@@ -92,25 +92,33 @@ const formattedElapsed = computed(() => {
 <template>
   <div class="toolbar">
     <div class="actions">
-      <button type="button" class="btn" @click="startNewGame">New Game</button>
+      <button type="button" class="btn" aria-label="New Game" @click="startNewGame">New</button>
       <button
         type="button"
-        class="btn"
+        class="btn icon-btn"
+        aria-label="Undo"
         :disabled="!store.canUndo || store.isAnimating"
         @click="handleUndo"
       >
-        Undo
+        ↩️
       </button>
-      <button type="button" class="btn" :disabled="store.isWon" @click="togglePause">
-        {{ store.state.status === 'paused' ? 'Resume' : 'Pause' }}
+      <button
+        type="button"
+        class="btn icon-btn"
+        :aria-label="store.state.status === 'paused' ? 'Resume' : 'Pause'"
+        :disabled="store.isWon"
+        @click="togglePause"
+      >
+        {{ store.state.status === 'paused' ? '▶️' : '⏸️' }}
       </button>
       <button
         type="button"
         class="btn"
+        aria-label="Auto Complete"
         :disabled="!store.canAutoComplete || store.isAnimating"
         @click="handleAutoComplete"
       >
-        Auto Complete
+        Auto
       </button>
       <SettingsPanel />
     </div>
@@ -170,11 +178,25 @@ const formattedElapsed = computed(() => {
 
 .actions {
   display: flex;
+  /* Belt-and-suspenders: the icon/abbreviated buttons below already fit one
+     row on real phone widths, but this still wraps rather than silently
+     clipping a button off-screen (html/body's overflow: hidden means a
+     clipped button would otherwise be permanently unreachable) on anything
+     narrower, or at larger accessibility zoom/font-size settings. */
+  flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.icon-btn {
+  min-width: 2.75rem;
+  padding: 0.5rem;
+  font-size: 1.25rem;
+  line-height: 1;
 }
 
 .seed-form {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
 }
@@ -189,6 +211,7 @@ const formattedElapsed = computed(() => {
 
 .stats {
   display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
   margin: 0;
 }
