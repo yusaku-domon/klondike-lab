@@ -78,6 +78,14 @@
  * Without this, the browser's default 8px body margin pushes the app's
  * height:100% chain past the viewport, which forces a scrollbar even
  * though there's nothing meaningful to scroll to.
+ *
+ * touch-action: manipulation disables the browser's own double-tap-to-zoom
+ * gesture app-wide (buttons, empty-pile slots, the felt background — a
+ * repeated tap anywhere is either a real move or a mistake, never a zoom
+ * request) while still allowing normal panning/pinch-zoom. It's overridden
+ * by PlayingCard.vue's stricter touch-action: none on interactive cards
+ * (needed there to stop the browser's own touch handling from fighting the
+ * drag-to-move gesture), which still wins via normal CSS specificity.
  */
 html,
 body {
@@ -85,6 +93,7 @@ body {
   padding: 0;
   height: 100%;
   overflow: hidden;
+  touch-action: manipulation;
 }
 
 #app {
