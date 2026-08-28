@@ -720,8 +720,11 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
 }
 
 .pause-title {
-  font-size: 1.5rem;
-  font-weight: bold;
+  font-family: 'Press Start 2P', monospace;
+  /* Press Start 2P ships one weight only — see .win-title's same note. */
+  font-weight: 400;
+  font-size: 1.25rem;
+  letter-spacing: 0.1em;
   margin: 0;
 }
 
