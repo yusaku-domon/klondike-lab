@@ -49,6 +49,11 @@
      reusing --z-overlay. */
   --z-blocking-overlay: 4;
 
+  /* Shared between Sidebar.vue (the panel's own width) and GameView.vue
+     (how far the main content slides over to stay clear of it) so the two
+     can never drift apart. */
+  --sidebar-width: 270px;
+
   --card-back-pattern: repeating-linear-gradient(
     45deg,
     var(--color-card-back-a),

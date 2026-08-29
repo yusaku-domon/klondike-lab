@@ -6,11 +6,11 @@ import { emptyState } from '../testFixtures'
 import { useGameStore } from '../stores/game'
 import GameToolbar from './GameToolbar.vue'
 
-function mountToolbar() {
+function mountToolbar(sidebarOpen = false) {
   const pinia = createPinia()
   setActivePinia(pinia)
   const store = useGameStore()
-  const wrapper = mount(GameToolbar, { global: { plugins: [pinia] } })
+  const wrapper = mount(GameToolbar, { props: { sidebarOpen }, global: { plugins: [pinia] } })
   return { wrapper, store }
 }
 
@@ -79,6 +79,24 @@ describe('GameToolbar', () => {
 
       expect(wrapper.find('.discard-confirm').exists()).toBe(false)
       expect(store.state.moveCount).toBe(0)
+    })
+  })
+
+  describe('sidebar toggle button', () => {
+    it('reflects the sidebarOpen prop via aria-expanded and points at the panel via aria-controls', () => {
+      const { wrapper } = mountToolbar(true)
+      const toggle = wrapper.get('[aria-label="Toggle sidebar"]')
+
+      expect(toggle.attributes('aria-expanded')).toBe('true')
+      expect(toggle.attributes('aria-controls')).toBe('app-sidebar')
+    })
+
+    it('emits toggle-sidebar when clicked', async () => {
+      const { wrapper } = mountToolbar()
+
+      await wrapper.get('[aria-label="Toggle sidebar"]').trigger('click')
+
+      expect(wrapper.emitted('toggle-sidebar')).toHaveLength(1)
     })
   })
 
