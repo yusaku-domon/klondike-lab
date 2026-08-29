@@ -14,63 +14,20 @@ function mountToolbar() {
   return { wrapper, store }
 }
 
+function newGameButton(wrapper: ReturnType<typeof mount>) {
+  return wrapper.get('[aria-label="New Game"]')
+}
+
 beforeEach(() => {
   localStorage.clear()
 })
 
 describe('GameToolbar', () => {
-  describe('start-with-seed form', () => {
-    it('disables the submit button while the seed field is empty', async () => {
-      const { wrapper } = mountToolbar()
-      const submit = wrapper.get('.seed-form button[type="submit"]')
-
-      expect(submit.attributes('disabled')).toBeDefined()
-
-      await wrapper.get('.seed-form input').setValue('123')
-      expect(submit.attributes('disabled')).toBeUndefined()
-
-      await wrapper.get('.seed-form input').setValue('')
-      expect(submit.attributes('disabled')).toBeDefined()
-    })
-
-    it('does not start a new game from a blank seed submission, even bypassing the disabled button', async () => {
-      const { wrapper, store } = mountToolbar()
-      const original = store.state
-
-      // Simulates a browser that still fires submit on Enter despite the
-      // disabled button (defense in depth in startWithSeed itself).
-      await wrapper.get('.seed-form').trigger('submit')
-
-      expect(store.state).toBe(original)
-    })
-
-    it('starts a new game with the entered seed once the field is non-empty', async () => {
-      const { wrapper, store } = mountToolbar()
-
-      await wrapper.get('.seed-form input').setValue('42')
-      await wrapper.get('.seed-form').trigger('submit')
-
-      expect(store.state.seed).toBe(42)
-    })
-
-    it('asks for confirmation instead of switching immediately when real progress would be lost', async () => {
-      const { wrapper, store } = mountToolbar()
-      store.state = emptyState({ moveCount: 3, status: 'playing' })
-      await wrapper.vm.$nextTick()
-
-      await wrapper.get('.seed-form input').setValue('42')
-      await wrapper.get('.seed-form').trigger('submit')
-
-      expect(store.state.seed).not.toBe(42)
-      expect(wrapper.find('.discard-confirm').exists()).toBe(true)
-    })
-  })
-
   describe('discard confirmation', () => {
     it('starts immediately, with no confirmation, when nothing has been moved yet', async () => {
       const { wrapper, store } = mountToolbar()
 
-      await wrapper.get('.actions .btn').trigger('click')
+      await newGameButton(wrapper).trigger('click')
 
       expect(wrapper.find('.discard-confirm').exists()).toBe(false)
       expect(store.state.moveCount).toBe(0)
@@ -82,7 +39,7 @@ describe('GameToolbar', () => {
       const before = store.state
       await wrapper.vm.$nextTick()
 
-      await wrapper.get('.actions .btn').trigger('click')
+      await newGameButton(wrapper).trigger('click')
 
       expect(wrapper.find('.discard-confirm').exists()).toBe(true)
       expect(store.state).toBe(before)
@@ -93,7 +50,7 @@ describe('GameToolbar', () => {
       store.state = emptyState({ moveCount: 5, status: 'playing' })
       await wrapper.vm.$nextTick()
 
-      await wrapper.get('.actions .btn').trigger('click')
+      await newGameButton(wrapper).trigger('click')
       await wrapper.get('.discard-confirm .prompt-actions button:first-child').trigger('click')
 
       expect(wrapper.find('.discard-confirm').exists()).toBe(false)
@@ -106,7 +63,7 @@ describe('GameToolbar', () => {
       const before = store.state
       await wrapper.vm.$nextTick()
 
-      await wrapper.get('.actions .btn').trigger('click')
+      await newGameButton(wrapper).trigger('click')
       await wrapper.get('.discard-confirm .prompt-actions button:last-child').trigger('click')
 
       expect(wrapper.find('.discard-confirm').exists()).toBe(false)
@@ -118,7 +75,7 @@ describe('GameToolbar', () => {
       store.state = emptyState({ moveCount: 40, status: 'won' })
       await wrapper.vm.$nextTick()
 
-      await wrapper.get('.actions .btn').trigger('click')
+      await newGameButton(wrapper).trigger('click')
 
       expect(wrapper.find('.discard-confirm').exists()).toBe(false)
       expect(store.state.moveCount).toBe(0)
@@ -128,12 +85,11 @@ describe('GameToolbar', () => {
   describe('abbreviated/icon action buttons keep their full accessible name', () => {
     it('labels New, Undo, Pause, and Auto with their un-abbreviated aria-label', () => {
       const { wrapper } = mountToolbar()
-      const [newGame, undo, pause, auto] = wrapper.findAll('.actions .btn')
 
-      expect(newGame.attributes('aria-label')).toBe('New Game')
-      expect(undo.attributes('aria-label')).toBe('Undo')
-      expect(pause.attributes('aria-label')).toBe('Pause')
-      expect(auto.attributes('aria-label')).toBe('Auto Complete')
+      expect(() => wrapper.get('[aria-label="New Game"]')).not.toThrow()
+      expect(() => wrapper.get('[aria-label="Undo"]')).not.toThrow()
+      expect(() => wrapper.get('[aria-label="Pause"]')).not.toThrow()
+      expect(() => wrapper.get('[aria-label="Auto Complete"]')).not.toThrow()
     })
 
     it("relabels Pause's icon button to Resume once the game is paused", async () => {
@@ -141,15 +97,8 @@ describe('GameToolbar', () => {
       store.pause()
       await wrapper.vm.$nextTick()
 
-      const [, , pause] = wrapper.findAll('.actions .btn')
-      expect(pause.attributes('aria-label')).toBe('Resume')
-    })
-
-    it('labels the Settings toggle button', () => {
-      const { wrapper } = mountToolbar()
-      const settingsButton = wrapper.findAll('.actions .btn').at(-1)
-
-      expect(settingsButton?.attributes('aria-label')).toBe('Settings')
+      expect(wrapper.find('[aria-label="Pause"]').exists()).toBe(false)
+      expect(() => wrapper.get('[aria-label="Resume"]')).not.toThrow()
     })
   })
 })

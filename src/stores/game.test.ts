@@ -69,6 +69,58 @@ describe('useGameStore', () => {
     expect(store.canUndo).toBe(false)
   })
 
+  describe('seed history recording', () => {
+    it('records a loss for an unfinished game when a new one starts', () => {
+      const store = useGameStore()
+      store.state = emptyState({ seed: 111, moveCount: 5, status: 'playing' })
+
+      store.newGame(222)
+
+      expect(store.seedHistory).toEqual([{ seed: 111, result: 'lose' }])
+    })
+
+    it('records a loss for a paused game too', () => {
+      const store = useGameStore()
+      store.state = emptyState({ seed: 111, moveCount: 5, status: 'paused' })
+
+      store.newGame(222)
+
+      expect(store.seedHistory).toEqual([{ seed: 111, result: 'lose' }])
+    })
+
+    it('records a win for a game left in the won status', () => {
+      const store = useGameStore()
+      store.state = emptyState({ seed: 111, moveCount: 40, status: 'won' })
+
+      store.newGame(222)
+
+      expect(store.seedHistory).toEqual([{ seed: 111, result: 'win' }])
+    })
+
+    it('does not record anything for a game that was never touched', () => {
+      const store = useGameStore()
+      store.state = emptyState({ seed: 111, moveCount: 0, status: 'playing' })
+
+      store.newGame(222)
+
+      expect(store.seedHistory).toEqual([])
+    })
+
+    it('accumulates entries newest-first across multiple games', () => {
+      const store = useGameStore()
+      store.state = emptyState({ seed: 1, moveCount: 3, status: 'won' })
+
+      store.newGame(2)
+      store.state = emptyState({ seed: 2, moveCount: 3, status: 'playing' })
+      store.newGame(3)
+
+      expect(store.seedHistory).toEqual([
+        { seed: 2, result: 'lose' },
+        { seed: 1, result: 'win' },
+      ])
+    })
+  })
+
   it('clickStock draws a card and enables undo', () => {
     const store = useGameStore()
     const stockBefore = store.state.stock.length

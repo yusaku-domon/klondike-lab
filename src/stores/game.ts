@@ -6,6 +6,7 @@ import { createInitialGameState, type GameState } from '../domain/deal'
 import { applyMove, clickStock as clickStockMove, type MoveCommand } from '../domain/moves'
 import type { ShuffleSeed } from '../domain/shuffle'
 import { loadGame, saveGame } from '../persistence/gameStorage'
+import { loadSeedHistory, recordSeedResult, type SeedHistoryEntry } from '../persistence/seedHistoryStorage'
 
 export const MAX_UNDO_HISTORY = 100
 const ELAPSED_SECONDS_SAVE_INTERVAL_TICKS = 10
@@ -17,6 +18,7 @@ function generateSeed(): ShuffleSeed {
 export const useGameStore = defineStore('game', () => {
   const state = shallowRef<GameState>(loadGame() ?? createInitialGameState(generateSeed()))
   const history = shallowRef<GameState[]>([])
+  const seedHistory = shallowRef<SeedHistoryEntry[]>(loadSeedHistory())
 
   // Bumped only by newGame(), never by a move/undo. UI layers (GameBoard)
   // watch this to clear any pile selection they're holding locally — a
@@ -143,6 +145,14 @@ export const useGameStore = defineStore('game', () => {
   }
 
   function newGame(seed: ShuffleSeed = generateSeed()) {
+    // Only a game the player actually touched counts as a result worth
+    // recording — a reroll before making a single move isn't a loss, it's
+    // just picking a different deal. Reaching 'won' is the only way to
+    // win; anything else (still playing, or paused) at the moment the
+    // player moves on counts as a loss.
+    if (state.value.moveCount > 0) {
+      seedHistory.value = recordSeedResult(state.value.seed, state.value.status === 'won' ? 'win' : 'lose')
+    }
     state.value = createInitialGameState(seed)
     history.value = []
     persist()
@@ -293,6 +303,7 @@ export const useGameStore = defineStore('game', () => {
 
   return {
     state,
+    seedHistory,
     canUndo,
     isWon,
     isPlayable,
