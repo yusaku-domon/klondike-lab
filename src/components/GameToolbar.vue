@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useGameStore } from '../stores/game'
-import SettingsPanel from './SettingsPanel.vue'
+import Sidebar from './Sidebar.vue'
 
 const store = useGameStore()
-const seedInput = ref('')
-// Which action is waiting on the discard-confirmation overlay below, if
-// any — set instead of switching games immediately whenever there's real,
-// unfinished progress (moved at least once, not already won) that would
-// otherwise be silently lost.
-const pendingAction = ref<'new' | 'seed' | null>(null)
+// Whether the New-Game discard-confirmation overlay below is showing — set
+// instead of switching games immediately whenever there's real, unfinished
+// progress (moved at least once, not already won) that would otherwise be
+// silently lost. (Start with This Seed has its own, separate copy of this
+// same confirmation inside SeedModal.vue.)
+const pendingNewGame = ref(false)
 
 function needsDiscardConfirmation(): boolean {
   return store.state.moveCount > 0 && store.state.status !== 'won'
@@ -17,50 +17,23 @@ function needsDiscardConfirmation(): boolean {
 
 function performNewGame() {
   store.newGame()
-  seedInput.value = ''
 }
 
 function startNewGame() {
   if (needsDiscardConfirmation()) {
-    pendingAction.value = 'new'
+    pendingNewGame.value = true
     return
   }
   performNewGame()
 }
 
-// v-model on a native <input type="number"> hands back a number once a
-// value has been typed (not always a string, despite seedInput's type),
-// so this must coerce before checking for blank rather than assuming string.
-const canStartWithSeed = computed(() => String(seedInput.value).trim() !== '')
-
-function performStartWithSeed() {
-  // Defense in depth alongside the submit button's :disabled binding below —
-  // Number('') is 0, a "valid" seed, so an empty field must be rejected
-  // explicitly here too rather than relying only on the button being
-  // disabled (e.g. pressing Enter in the field doesn't always respect it).
-  if (!canStartWithSeed.value) return
-  const seed = Number(seedInput.value)
-  if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff) return
-  store.newGame(seed)
+function confirmNewGame() {
+  performNewGame()
+  pendingNewGame.value = false
 }
 
-function startWithSeed() {
-  if (!canStartWithSeed.value) return
-  if (needsDiscardConfirmation()) {
-    pendingAction.value = 'seed'
-    return
-  }
-  performStartWithSeed()
-}
-
-function confirmPendingAction() {
-  if (pendingAction.value === 'new') performNewGame()
-  else if (pendingAction.value === 'seed') performStartWithSeed()
-  pendingAction.value = null
-}
-
-function cancelPendingAction() {
-  pendingAction.value = null
+function cancelNewGame() {
+  pendingNewGame.value = false
 }
 
 function togglePause() {
@@ -92,6 +65,7 @@ const formattedElapsed = computed(() => {
 <template>
   <div class="toolbar">
     <div class="actions">
+      <Sidebar />
       <button type="button" class="btn" aria-label="New Game" @click="startNewGame">New</button>
       <button
         type="button"
@@ -120,16 +94,7 @@ const formattedElapsed = computed(() => {
       >
         Auto
       </button>
-      <SettingsPanel />
     </div>
-
-    <form class="seed-form" @submit.prevent="startWithSeed">
-      <label>
-        Seed
-        <input v-model="seedInput" type="number" min="0" :max="0xffffffff" />
-      </label>
-      <button type="submit" class="btn" :disabled="!canStartWithSeed">Start with This Seed</button>
-    </form>
 
     <dl class="stats">
       <div>
@@ -151,15 +116,15 @@ const formattedElapsed = computed(() => {
     </dl>
 
     <div
-      v-if="pendingAction"
+      v-if="pendingNewGame"
       class="discard-confirm"
       role="alertdialog"
       aria-label="Start a new game?"
     >
       <p class="prompt-title">Start a new game? Your current progress will be lost.</p>
       <div class="prompt-actions">
-        <button type="button" class="btn" @click="confirmPendingAction">YES</button>
-        <button type="button" class="btn" @click="cancelPendingAction">NO</button>
+        <button type="button" class="btn" @click="confirmNewGame">YES</button>
+        <button type="button" class="btn" @click="cancelNewGame">NO</button>
       </div>
     </div>
   </div>
@@ -198,21 +163,6 @@ const formattedElapsed = computed(() => {
   font-weight: 400;
   font-size: 1.25rem;
   line-height: 1;
-}
-
-.seed-form {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.seed-form input {
-  width: 8rem;
-  min-height: 2.75rem;
-  padding: 0 0.5rem;
-  font: inherit;
-  box-sizing: border-box;
 }
 
 .stats {
