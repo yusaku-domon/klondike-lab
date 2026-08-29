@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useGameStore } from '../stores/game'
-import Sidebar from './Sidebar.vue'
+
+defineProps<{ sidebarOpen: boolean }>()
+defineEmits<{ 'toggle-sidebar': [] }>()
 
 const store = useGameStore()
 // Whether the New-Game discard-confirmation overlay below is showing — set
@@ -65,7 +67,16 @@ const formattedElapsed = computed(() => {
 <template>
   <div class="toolbar">
     <div class="actions">
-      <Sidebar />
+      <button
+        type="button"
+        class="btn icon-btn sidebar-toggle"
+        aria-label="Toggle sidebar"
+        aria-controls="app-sidebar"
+        :aria-expanded="sidebarOpen"
+        @click="$emit('toggle-sidebar')"
+      >
+        ≡
+      </button>
       <button type="button" class="btn" aria-label="New Game" @click="startNewGame">New</button>
       <button
         type="button"
@@ -150,6 +161,16 @@ const formattedElapsed = computed(() => {
      narrower, or at larger accessibility zoom/font-size settings. */
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+/* The sidebar overlay (Sidebar.vue) sits above the whole header, including
+   this button's own space at the far left — without its own stacking
+   context above that overlay, this button would be visually and
+   interactively covered while the sidebar is open, with no way to click it
+   again to close (Escape would still work, but the button wouldn't). */
+.sidebar-toggle {
+  position: relative;
+  z-index: var(--z-blocking-overlay);
 }
 
 .icon-btn {
