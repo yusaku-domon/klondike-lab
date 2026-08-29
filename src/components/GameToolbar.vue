@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useGameStore } from '../stores/game'
+import SidebarToggleIcon from './SidebarToggleIcon.vue'
 
-defineProps<{ sidebarOpen: boolean }>()
-defineEmits<{ 'toggle-sidebar': [] }>()
+defineProps<{ showSidebarToggle: boolean }>()
+defineEmits<{ 'open-sidebar': [] }>()
 
 const store = useGameStore()
 // Whether the New-Game discard-confirmation overlay below is showing — set
@@ -67,15 +68,25 @@ const formattedElapsed = computed(() => {
 <template>
   <div class="toolbar">
     <div class="actions">
+      <!-- Only ever represents "closed, click to open" — hidden the instant
+           it's clicked and only shown again once Sidebar.vue's own close
+           animation actually finishes (GameView.vue tracks that), so this
+           and Sidebar.vue's in-panel close button are never both visible.
+           This button never itself moves to sit inside the sidebar (that
+           was tried before and reads as visually "detached" from the panel
+           mid-slide) — instead the sidebar gets its OWN close button,
+           rendered as a real DOM child of the sliding <aside> so it moves
+           with zero position/transition logic of its own. -->
       <button
+        v-if="showSidebarToggle"
         type="button"
-        class="btn icon-btn sidebar-toggle"
-        aria-label="Toggle sidebar"
+        class="btn sidebar-toggle"
+        aria-label="サイドバーを開く"
         aria-controls="app-sidebar"
-        :aria-expanded="sidebarOpen"
-        @click="$emit('toggle-sidebar')"
+        aria-expanded="false"
+        @click="$emit('open-sidebar')"
       >
-        ≡
+        <SidebarToggleIcon :open="false" />
       </button>
       <button type="button" class="btn" aria-label="New Game" @click="startNewGame">New</button>
       <button
@@ -161,16 +172,6 @@ const formattedElapsed = computed(() => {
      narrower, or at larger accessibility zoom/font-size settings. */
   flex-wrap: wrap;
   gap: 0.5rem;
-}
-
-/* The sidebar overlay (Sidebar.vue) sits above the whole header, including
-   this button's own space at the far left — without its own stacking
-   context above that overlay, this button would be visually and
-   interactively covered while the sidebar is open, with no way to click it
-   again to close (Escape would still work, but the button wouldn't). */
-.sidebar-toggle {
-  position: relative;
-  z-index: var(--z-blocking-overlay);
 }
 
 .icon-btn {

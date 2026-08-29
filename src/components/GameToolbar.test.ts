@@ -6,11 +6,14 @@ import { emptyState } from '../testFixtures'
 import { useGameStore } from '../stores/game'
 import GameToolbar from './GameToolbar.vue'
 
-function mountToolbar(sidebarOpen = false) {
+function mountToolbar(showSidebarToggle = true) {
   const pinia = createPinia()
   setActivePinia(pinia)
   const store = useGameStore()
-  const wrapper = mount(GameToolbar, { props: { sidebarOpen }, global: { plugins: [pinia] } })
+  const wrapper = mount(GameToolbar, {
+    props: { showSidebarToggle },
+    global: { plugins: [pinia] },
+  })
   return { wrapper, store }
 }
 
@@ -82,21 +85,33 @@ describe('GameToolbar', () => {
     })
   })
 
-  describe('sidebar toggle button', () => {
-    it('reflects the sidebarOpen prop via aria-expanded and points at the panel via aria-controls', () => {
-      const { wrapper } = mountToolbar(true)
-      const toggle = wrapper.get('[aria-label="Toggle sidebar"]')
+  describe('header sidebar-open button', () => {
+    function toggleButton(wrapper: ReturnType<typeof mount>) {
+      return wrapper.get('[aria-controls="app-sidebar"]')
+    }
 
-      expect(toggle.attributes('aria-expanded')).toBe('true')
+    it('always represents the closed state: aria-expanded false, opening label, chevron before the lines', () => {
+      const { wrapper } = mountToolbar(true)
+      const toggle = toggleButton(wrapper)
+
+      expect(toggle.attributes('aria-expanded')).toBe('false')
+      expect(toggle.attributes('aria-label')).toBe('サイドバーを開く')
       expect(toggle.attributes('aria-controls')).toBe('app-sidebar')
+      expect(toggle.find('.toggle-icon').classes()).not.toContain('toggle-icon--open')
     })
 
-    it('emits toggle-sidebar when clicked', async () => {
-      const { wrapper } = mountToolbar()
+    it('is not rendered at all while showSidebarToggle is false', () => {
+      const { wrapper } = mountToolbar(false)
 
-      await wrapper.get('[aria-label="Toggle sidebar"]').trigger('click')
+      expect(wrapper.find('[aria-controls="app-sidebar"]').exists()).toBe(false)
+    })
 
-      expect(wrapper.emitted('toggle-sidebar')).toHaveLength(1)
+    it('emits open-sidebar when clicked', async () => {
+      const { wrapper } = mountToolbar(true)
+
+      await toggleButton(wrapper).trigger('click')
+
+      expect(wrapper.emitted('open-sidebar')).toHaveLength(1)
     })
   })
 

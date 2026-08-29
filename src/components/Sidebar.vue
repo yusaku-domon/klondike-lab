@@ -2,11 +2,13 @@
 import { onBeforeUnmount, ref, watch } from 'vue'
 import SeedModal from './SeedModal.vue'
 import SettingsModal from './SettingsModal.vue'
+import SidebarToggleIcon from './SidebarToggleIcon.vue'
 
 const props = defineProps<{ open: boolean }>()
-const emit = defineEmits<{ close: [] }>()
+const emit = defineEmits<{ close: []; 'fully-closed': [] }>()
 
 const activeModal = ref<'settings' | 'seed' | null>(null)
+const asideEl = ref<HTMLElement | null>(null)
 
 function closeModal() {
   activeModal.value = null
@@ -14,6 +16,17 @@ function closeModal() {
 
 function handleKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') emit('close')
+}
+
+// Fires for both the opening and closing slide — only the closing one
+// (props.open already false by the time its own transition ends) should
+// tell GameView.vue it's safe to show the header's open button again.
+// event.target excludes bubbled transitionend from unrelated descendants
+// (e.g. a modal's own transitions, if it ever gets one).
+function handleTransitionEnd(event: TransitionEvent) {
+  if (event.target !== asideEl.value) return
+  if (event.propertyName !== 'transform') return
+  if (!props.open) emit('fully-closed')
 }
 
 // Only listens while open, so Escape presses elsewhere in the app (e.g. a
@@ -38,7 +51,29 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <aside id="app-sidebar" class="sidebar" :class="{ 'sidebar--open': open }">
+  <aside
+    id="app-sidebar"
+    ref="asideEl"
+    class="sidebar"
+    :class="{ 'sidebar--open': open }"
+    @transitionend="handleTransitionEnd"
+  >
+    <!-- A real DOM child of the sliding <aside>, not a separately
+         positioned/animated element — it has no transform or transition
+         of its own, so it rides along with the panel's own slide with
+         zero risk of drifting out of sync. -->
+    <button
+      v-if="open"
+      type="button"
+      class="btn sidebar-toggle sidebar-close"
+      aria-label="サイドバーを閉じる"
+      aria-controls="app-sidebar"
+      aria-expanded="true"
+      @click="emit('close')"
+    >
+      <SidebarToggleIcon :open="true" />
+    </button>
+
     <nav v-if="open" class="sidebar-nav" aria-label="Sidebar menu">
       <button
         type="button"
@@ -68,7 +103,7 @@ onBeforeUnmount(() => {
   left: 0;
   width: var(--sidebar-width);
   box-sizing: border-box;
-  background: #ffffff;
+  background: var(--color-felt-dark);
   border-right: 1px solid rgba(0, 0, 0, 0.12);
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
   z-index: var(--z-dropdown);
@@ -81,10 +116,24 @@ onBeforeUnmount(() => {
   transform: translateX(0);
 }
 
+/* position: absolute against the <aside> (already positioned via its own
+   fixed+transform), not position: fixed of its own — this is what keeps
+   it from ever needing (or being able to drift from) its own transform:
+   it simply sits at a fixed offset within the panel's box, and moves
+   exactly when/as much as the panel itself does. */
+.sidebar-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+}
+
 .sidebar-nav {
   display: flex;
   flex-direction: column;
-  padding: 1rem 0;
+  /* Extra top padding clears .sidebar-close's own footprint (0.5rem inset
+     + 2.75rem button = 3.25rem from the panel's top edge) so the first
+     menu item's row never sits underneath it. */
+  padding: 3.5rem 0 1rem;
 }
 
 .sidebar-item {
@@ -95,14 +144,14 @@ onBeforeUnmount(() => {
   padding: 0.75rem 1.25rem;
   border: none;
   background: none;
-  color: #1a1a1a;
+  color: var(--color-text-on-dark);
   font: inherit;
   text-align: left;
   cursor: pointer;
 }
 
 .sidebar-item:hover {
-  background: rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .sidebar-icon {
