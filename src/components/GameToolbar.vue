@@ -93,13 +93,33 @@ const formattedElapsed = computed(() => {
       >
         <SidebarToggleIcon :open="false" />
       </button>
-      <button type="button" class="btn" aria-label="New Game" @click="startNewGame">New</button>
-      <!-- These three (Undo/Pause/Redo) are the ones that move to
-           MobilePlayBar.vue's fixed bottom bar at the same ≤600px
-           breakpoint — .header-play-control hides them here so they're
-           never shown (or clickable) in both places at once. New/Auto/the
-           sidebar toggle and the stats below are unaffected and stay put
-           on every screen size. -->
+      <!-- Icon+label markup is shared by both breakpoints (one button, one
+           handler — see .new-btn-icon below), so PC and mobile never
+           diverge in behavior, only in which parts of this same element
+           are visible. On PC the icon stays display: none and this reads
+           exactly as the plain "New" button it always was; only at
+           <=600px does .new-btn's own media query turn it into the small
+           pill this file's header comment describes, pinned to the far
+           right of .actions via margin-left: auto (see below) so it lands
+           at the header's top-right regardless of whether the sidebar
+           toggle before it is currently shown. -->
+      <button type="button" class="btn new-btn" aria-label="New Game" @click="startNewGame">
+        <svg class="new-btn-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <rect x="2" y="3" width="11" height="14" rx="1.5" stroke="currentColor" stroke-width="1.4" />
+          <path d="M16 8 V14 M13 11 H19" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+        </svg>
+        <span class="new-btn-label">New</span>
+      </button>
+      <!-- These four (Undo/Pause/Redo/Auto) are the ones that move out of
+           the header at the same <=600px breakpoint — Undo/Pause/Redo to
+           MobilePlayBar.vue's fixed bottom bar, Auto to
+           AutoFinishButton.vue's own floating button above that bar (shown
+           only once auto-complete is actually available, rather than
+           staying visible-but-disabled the way it does here on PC).
+           .header-play-control hides all four here so they're never shown
+           (or clickable) in both places at once. New/the sidebar toggle
+           and the stats below are unaffected and stay put on every screen
+           size. -->
       <button
         type="button"
         class="btn icon-btn header-play-control"
@@ -129,7 +149,7 @@ const formattedElapsed = computed(() => {
       </button>
       <button
         type="button"
-        class="btn"
+        class="btn header-play-control"
         aria-label="Auto Complete"
         :disabled="!store.canAutoComplete || store.isAnimating"
         @click="handleAutoComplete"
@@ -223,12 +243,71 @@ const formattedElapsed = computed(() => {
   transform: scaleX(-1);
 }
 
-/* Keep in sync with MobilePlayBar.vue's own breakpoint — both read from
-   the same 600px cutoff between "desktop header" and "mobile bottom bar"
-   placement for Undo/Pause/Redo. */
+/* Hidden on PC — .new-btn shows only the plain text label there, matching
+   the original button exactly. Shown again inside the media query below. */
+.new-btn-icon {
+  display: none;
+}
+
+/* Keep in sync with MobilePlayBar.vue's/AutoFinishButton.vue's own
+   breakpoint — all three read from the same 600px cutoff between "desktop
+   header" and "mobile bottom controls" placement for Undo/Pause/Redo/Auto. */
 @media (max-width: 600px) {
   .header-play-control {
     display: none;
+  }
+
+  /* Stretches .actions to the header's full row width so New's own
+     margin-left: auto below has somewhere to push against — without this,
+     .actions would stay shrink-wrapped to just the sidebar toggle + New's
+     own combined width (flex items don't grow by default), and New would
+     end up sitting immediately next to the toggle instead of at the far
+     right of the row. This also makes the two-row header (this row, then
+     .stats below) unconditional at this breakpoint, rather than relying on
+     .actions/.stats happening to overflow onto separate lines on their
+     own. */
+  .actions {
+    width: 100%;
+  }
+
+  .new-btn {
+    /* Pushes this one flex item (and it alone) to the row's right edge,
+       regardless of whether the sidebar toggle before it is currently
+       rendered at all (v-if) — simpler and more robust here than
+       justify-content: space-between on .actions, which would re-center a
+       lone remaining child instead of keeping it pinned right. */
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 44px;
+    padding: 0 0.9rem;
+    border-radius: 999px;
+    /* Same dark green + translucency as .toolbar's own background-color,
+       and the same border accent MobilePlayBar.vue/the sidebar toggle
+       button already use — reads as one family of controls rather than a
+       new, separately-invented style. */
+    background-color: rgba(11, 61, 36, 0.85);
+    border: 2px solid var(--color-sidebar-toggle-accent);
+    color: var(--color-text-on-dark);
+    /* Cancels .btn's shared white fill/shadow/press-down look — same
+       reasoning as .btn.sidebar-toggle's own override in style.css, just
+       scoped to this component instead of global since only this one
+       breakpoint needs it. */
+    box-shadow: none;
+  }
+
+  .new-btn:active:not(:disabled) {
+    transform: none;
+    box-shadow: none;
+    background-image: linear-gradient(rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.12));
+  }
+
+  .new-btn-icon {
+    display: inline-flex;
+    width: 1.1rem;
+    height: 1.1rem;
+    flex: none;
   }
 }
 

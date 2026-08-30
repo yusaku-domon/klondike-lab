@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import AutoFinishButton from '../components/AutoFinishButton.vue'
 import GameBoard from '../components/GameBoard.vue'
 import GameToolbar from '../components/GameToolbar.vue'
 import MobilePlayBar from '../components/MobilePlayBar.vue'
@@ -33,6 +34,7 @@ function handleSidebarFullyClosed() {
     <Sidebar :open="sidebarOpen" @close="closeSidebar" @fully-closed="handleSidebarFullyClosed" />
     <GameToolbar :show-sidebar-toggle="showSidebarToggle" @open-sidebar="openSidebar" />
     <GameBoard />
+    <AutoFinishButton :sidebar-open="sidebarOpen" />
     <MobilePlayBar :sidebar-open="sidebarOpen" />
   </div>
 </template>
