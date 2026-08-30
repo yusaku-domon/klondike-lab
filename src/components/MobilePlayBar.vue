@@ -37,7 +37,12 @@ function togglePause() {
 </script>
 
 <template>
-  <div class="mobile-play-bar" :class="{ 'mobile-play-bar--inert': sidebarOpen }" role="group" aria-label="Play controls">
+  <div
+    class="mobile-play-bar"
+    :class="{ 'mobile-play-bar--inert': sidebarOpen, 'mobile-play-bar--paused': store.state.status === 'paused' }"
+    role="group"
+    aria-label="Play controls"
+  >
     <button
       type="button"
       class="play-bar-btn"
@@ -105,9 +110,24 @@ function togglePause() {
     /* Sits above ordinary board content (cards, at their default z-index:
        auto) so nothing shows through it, but below the sidebar/modals'
        own higher tiers (see the prop doc above) so those still cover and
-       block it without any extra coordination. */
+       block it without any extra coordination. Also below the
+       auto-complete prompt and win banner (both --z-overlay) while not
+       paused — see .mobile-play-bar--paused below for the one case where
+       this bar needs to win instead. */
     z-index: var(--z-card-layer);
   }
+}
+
+/* Pausing still darkens the bar's own screen area (GameBoard.vue's
+   .pause-overlay keeps its full inset: 0 coverage, unchanged) — this just
+   moves the bar itself above that backdrop instead of carving a hole out
+   of it, since it's otherwise the only way to resume once Undo/Redo/Auto
+   have moved out of the header at this breakpoint. Still below
+   --z-dropdown/--z-blocking-overlay, so the sidebar and any modal opened
+   mid-pause still win over it — enforced doubly by sidebarOpen's own
+   disabled/inert handling below regardless of any stacking-order tie. */
+.mobile-play-bar--paused {
+  z-index: var(--z-mobile-play-bar-paused);
 }
 
 .mobile-play-bar--inert {

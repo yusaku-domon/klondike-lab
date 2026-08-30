@@ -127,4 +127,25 @@ describe('MobilePlayBar', () => {
     const { wrapper } = mountBar(false)
     expect(wrapper.get('.mobile-play-bar').classes()).not.toContain('mobile-play-bar--inert')
   })
+
+  it('rises above the pause overlay while paused, so Resume stays reachable through it', async () => {
+    const { wrapper, store } = mountBar()
+    expect(wrapper.get('.mobile-play-bar').classes()).not.toContain('mobile-play-bar--paused')
+
+    store.pause()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.get('.mobile-play-bar').classes()).toContain('mobile-play-bar--paused')
+  })
+
+  it('drops the elevated tier again once resumed', async () => {
+    const { wrapper, store } = mountBar()
+    store.pause()
+    await wrapper.vm.$nextTick()
+
+    store.resume()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.get('.mobile-play-bar').classes()).not.toContain('mobile-play-bar--paused')
+  })
 })
