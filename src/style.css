@@ -21,6 +21,13 @@
   --color-button-bg: #fff;
   --color-button-text: #1a1a1a;
   --color-button-shadow: #9a9a9a;
+  /* Sidebar.vue's panel background and both of its toggle buttons'
+     (GameToolbar.vue's header "open" button, Sidebar.vue's in-panel
+     "close" button) backgrounds all use --color-felt-dark directly
+     (already exactly this value) so they read as part of the same dark
+     surface rather than a separate duplicated color. This is the buttons'
+     border and icon color only. */
+  --color-sidebar-toggle-accent: #899e91;
 
   /* clamp()'s preferred value is the exact --card-width at which 7 tableau
      columns + 6 gaps (each 1/6 of a card width, see GameBoard.vue) + the
@@ -160,5 +167,33 @@ body {
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Shared by GameToolbar.vue's header "open" button and Sidebar.vue's
+   in-panel "close" button — global (not per-component scoped styles) so
+   the two can never drift apart in appearance. .btn.sidebar-toggle (two
+   classes) deliberately outweighs the plain .btn rule's specificity so
+   this doesn't have to fight the shared raised-button look (box-shadow,
+   rounded-square, press-down transform) .btn gives every other button. */
+.btn.sidebar-toggle {
+  box-sizing: border-box;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--color-sidebar-toggle-accent);
+  border-radius: 50%;
+  background: var(--color-felt-dark);
+  color: var(--color-sidebar-toggle-accent);
+  box-shadow: none;
+}
+
+/* Cancels .btn's built-in press-down effect (transform: translateY(3px))
+   for a flat look. */
+.btn.sidebar-toggle:active:not(:disabled) {
+  transform: none;
   box-shadow: none;
 }
