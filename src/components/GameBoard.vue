@@ -191,7 +191,8 @@ function handlePointerUp(event: PointerEvent) {
   // position simply falls back to its unchanged pile slot, which reads as
   // a "snap back" for free via the same CSS transition normal moves use.
   if (to && store.isPlayable && !store.isAnimating) {
-    store.move({ from: drag.from, to })
+    const applied = store.move({ from: drag.from, to })
+    if (applied) focusCardById(drag.cardIds[0])
   }
 }
 
@@ -430,6 +431,19 @@ function dismissAutoCompletePrompt() {
   showAutoCompletePrompt.value = false
 }
 
+// A move re-renders both the source and destination pile's own v-for list,
+// so the moved card's <button> is destroyed in one and a fresh one mounted
+// in the other — Vue has no way to carry a DOM node's focus across that
+// boundary. Without this, a keyboard player's focus silently falls back to
+// <body> after every single move, forcing them to Tab in from the top of
+// the page again just to make their next move. Re-focusing the same card by
+// its stable id, once it's re-rendered at its new pile, is what keeps a
+// keyboard-only game playable move after move.
+async function focusCardById(cardId: string) {
+  await nextTick()
+  boardEl.value?.querySelector<HTMLElement>(`[data-testid="card-${cardId}"]`)?.focus()
+}
+
 function handleClick(target: ClickTarget) {
   // The click that the browser fires right after a real drag's pointerup —
   // suppressed so it can't also toggle selection on whatever the finger
@@ -445,7 +459,18 @@ function handleClick(target: ClickTarget) {
     return
   }
 
-  selection.value = resolveClick(store.state, selection.value, target, store.move)
+  // Captured before store.move runs (attemptMove, below) — by the time it
+  // returns, the moving cards' pile has already changed, so command.from no
+  // longer resolves to them.
+  let movedAnchorCardId: string | null = null
+  selection.value = resolveClick(store.state, selection.value, target, (command) => {
+    const anchor = getMovingCards(store.state, command.from)?.[0]?.id ?? null
+    const applied = store.move(command)
+    if (applied) movedAnchorCardId = anchor
+    return applied
+  })
+
+  if (movedAnchorCardId) focusCardById(movedAnchorCardId)
 }
 
 function isSelected(target: ClickTarget): boolean {
