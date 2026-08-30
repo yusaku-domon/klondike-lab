@@ -112,13 +112,25 @@ describe('GameBoard', () => {
     await wrapper.get('[data-testid="stock-pile"]').trigger('click')
     expect(store.state.stock).toHaveLength(1)
 
-    // The only working click surface while paused is the resume button.
-    await wrapper.get('.pause-overlay button').trigger('click')
+    // Resuming is done from GameToolbar.vue's header button or
+    // MobilePlayBar.vue's own button, not from this overlay — it carries
+    // no button of its own (see the "Paused" text-only assertion below).
+    store.resume()
     await wrapper.vm.$nextTick()
 
     expect(store.state.status).toBe('playing')
     expect(wrapper.find('.pause-overlay').exists()).toBe(false)
     expect(wrapper.find('[data-testid="stock-pile"]').exists()).toBe(true)
+  })
+
+  it('the pause overlay has no button of its own — just the "Paused" text', async () => {
+    const { wrapper, store } = mountBoard()
+    store.pause()
+    await wrapper.vm.$nextTick()
+
+    const overlay = wrapper.get('.pause-overlay')
+    expect(overlay.text()).toBe('Paused')
+    expect(overlay.findAll('button')).toHaveLength(0)
   })
 
   it('clears a leftover selection when a new game starts, even though the new deal reuses the same pile shape', async () => {

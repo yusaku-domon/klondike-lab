@@ -45,7 +45,16 @@
      entirely within --z-card-layer's own stacking context. */
   --z-card-layer: 1;
   --z-overlay: 2;
-  --z-dropdown: 3;
+  /* MobilePlayBar.vue's own tier while the game is paused: above
+     --z-overlay (the pause overlay's dark backdrop, which still covers the
+     bar's full screen area — it's placed physically on top of that
+     backdrop, not carved out of it), but below --z-dropdown/
+     --z-blocking-overlay so the sidebar and any modal/confirmation dialog
+     still win over it, unchanged. Otherwise (not paused) the bar stays at
+     its default --z-card-layer tier, still behind the auto-complete
+     prompt and win banner. */
+  --z-mobile-play-bar-paused: 3;
+  --z-dropdown: 4;
   /* .game-board has position: relative but no z-index of its own, so it
      never establishes its own stacking context — its --z-overlay children
      (pause/auto-complete/win) end up competing directly with anything
@@ -54,7 +63,7 @@
      (it must block interaction with whatever's on the board, including
      another --z-overlay prompt), hence its own higher tier instead of
      reusing --z-overlay. */
-  --z-blocking-overlay: 4;
+  --z-blocking-overlay: 5;
 
   /* Shared between Sidebar.vue (the panel's own width) and GameView.vue
      (how far the main content slides over to stay clear of it) so the two

@@ -587,10 +587,15 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
          player sees exactly the layout they paused on — matching
          .win-banner/.auto-complete-prompt's same overlay-on-top pattern
          below, never shown together since 'paused' is mutually exclusive
-         with 'won' and with isPlayable. -->
+         with 'won' and with isPlayable. No button of its own: resuming is
+         done via GameToolbar.vue's header Pause/Resume button (PC) or
+         MobilePlayBar.vue's own Pause/Resume button (mobile). This overlay
+         still covers the bar's full screen area (inset: 0, unchanged) —
+         the bar stays clickable by rendering physically on top of it, at
+         its own --z-mobile-play-bar-paused tier (see MobilePlayBar.vue),
+         rather than by carving a hole out of this backdrop. -->
     <div v-if="store.state.status === 'paused'" class="pause-overlay" role="status">
       <p class="pause-title">Paused</p>
-      <button type="button" class="btn" @click="store.resume()">Resume</button>
     </div>
 
     <div
