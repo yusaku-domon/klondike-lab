@@ -103,17 +103,39 @@ onBeforeUnmount(() => {
   left: 0;
   width: var(--sidebar-width);
   box-sizing: border-box;
-  background: var(--color-felt-dark);
-  border-right: 1px solid rgba(0, 0, 0, 0.12);
-  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+  /* Same felt image GameView.vue/GameBoard.vue use for the header and
+     board (see THIRD_PARTY_NOTICES.md), so the panel reads as part of the
+     same family of surfaces — but kept fully opaque, unlike the header's
+     translucent rgba() background-color: both layers here are 100%
+     opaque (the image has no alpha channel, and this flat overlay is a
+     second full background layer, not the whole .sidebar element's own
+     opacity), so nothing behind the panel — cards, buttons — can ever
+     show through it, open or mid-slide. #0b3d24 at 90% keeps the panel
+     reading as the same solid dark green as before; if the weave ever
+     reads as too busy, this is the one number to raise (try 92%) rather
+     than adding a second overlay or touching the image itself. */
+  background-color: #0b3d24;
+  background-image: linear-gradient(rgba(11, 61, 36, 0.9), rgba(11, 61, 36, 0.9)),
+    url('../assets/textures/board-felt.webp');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
   z-index: var(--z-dropdown);
   transform: translateX(-100%);
   transition: transform 0.25s ease;
   overflow-y: auto;
 }
 
+/* Root cause of a reported dark line down the left/top edge of the game
+   board: box-shadow (and border-right) paint outside the element's own
+   box, so even with the panel fully translated off-screen at rest, its
+   shadow's blur/offset still reached back onto the visible viewport edge.
+   Scoped to the open state only — there's nothing to visually separate
+   the panel from while it isn't shown anyway. */
 .sidebar--open {
   transform: translateX(0);
+  border-right: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
 }
 
 /* position: absolute against the <aside> (already positioned via its own
@@ -150,7 +172,9 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
-.sidebar-item:hover {
+.sidebar-item:hover,
+.sidebar-item:focus-visible,
+.sidebar-item:active {
   background: rgba(255, 255, 255, 0.08);
 }
 
