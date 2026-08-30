@@ -43,31 +43,20 @@ describe('Sidebar', () => {
     expect(wrapper.emitted('close')).toHaveLength(1)
   })
 
-  it('opens the Settings modal when its menu item is clicked', async () => {
+  it('emits select("settings") when the Settings menu item is clicked', async () => {
     const wrapper = mountSidebar(true)
 
     await wrapper.get('[aria-label="Settings"]').trigger('click')
 
-    expect(wrapper.find('[aria-label="Settings"][aria-modal="true"]').exists()).toBe(true)
-    expect(wrapper.find('[aria-label="Seed"][aria-modal="true"]').exists()).toBe(false)
+    expect(wrapper.emitted('select')).toEqual([['settings']])
   })
 
-  it('opens the Seed modal when its menu item is clicked', async () => {
+  it('emits select("seed") when the Seed menu item is clicked', async () => {
     const wrapper = mountSidebar(true)
 
     await wrapper.get('[aria-label="Seed"]').trigger('click')
 
-    expect(wrapper.find('[aria-label="Seed"][aria-modal="true"]').exists()).toBe(true)
-    expect(wrapper.find('[aria-label="Settings"][aria-modal="true"]').exists()).toBe(false)
-  })
-
-  it('closes the open modal when its close button is clicked', async () => {
-    const wrapper = mountSidebar(true)
-    await wrapper.get('[aria-label="Settings"]').trigger('click')
-
-    await wrapper.get('[aria-label="Close"]').trigger('click')
-
-    expect(wrapper.find('[aria-modal="true"]').exists()).toBe(false)
+    expect(wrapper.emitted('select')).toEqual([['seed']])
   })
 
   describe('in-panel close button', () => {

@@ -1,17 +1,9 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from 'vue'
-import SeedModal from './SeedModal.vue'
-import SettingsModal from './SettingsModal.vue'
+import { onBeforeUnmount, watch } from 'vue'
 import SidebarToggleIcon from './SidebarToggleIcon.vue'
 
 const props = defineProps<{ open: boolean }>()
-const emit = defineEmits<{ close: [] }>()
-
-const activeModal = ref<'settings' | 'seed' | null>(null)
-
-function closeModal() {
-  activeModal.value = null
-}
+const emit = defineEmits<{ close: []; select: [item: 'settings' | 'seed'] }>()
 
 function handleKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') emit('close')
@@ -26,9 +18,6 @@ watch(
       document.addEventListener('keydown', handleKeydown)
     } else {
       document.removeEventListener('keydown', handleKeydown)
-      // Closing the panel mid-modal shouldn't leave it re-openable to a
-      // stale modal the next time the sidebar opens.
-      activeModal.value = null
     }
   },
 )
@@ -57,24 +46,16 @@ onBeforeUnmount(() => {
     </button>
 
     <nav v-if="open" class="sidebar-nav" aria-label="Sidebar menu">
-      <button
-        type="button"
-        class="sidebar-item"
-        aria-label="Settings"
-        @click="activeModal = 'settings'"
-      >
+      <button type="button" class="sidebar-item" aria-label="Settings" @click="emit('select', 'settings')">
         <span class="sidebar-icon" aria-hidden="true">⚙</span>
         <span class="sidebar-label">Settings</span>
       </button>
-      <button type="button" class="sidebar-item" aria-label="Seed" @click="activeModal = 'seed'">
+      <button type="button" class="sidebar-item" aria-label="Seed" @click="emit('select', 'seed')">
         <span class="sidebar-icon" aria-hidden="true">🌱</span>
         <span class="sidebar-label">Seed</span>
       </button>
     </nav>
   </aside>
-
-  <SettingsModal v-if="activeModal === 'settings'" @close="closeModal" />
-  <SeedModal v-if="activeModal === 'seed'" @close="closeModal" />
 </template>
 
 <style scoped>

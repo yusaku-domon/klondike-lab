@@ -4,9 +4,17 @@ import AutoFinishButton from '../components/AutoFinishButton.vue'
 import GameBoard from '../components/GameBoard.vue'
 import GameToolbar from '../components/GameToolbar.vue'
 import MobilePlayBar from '../components/MobilePlayBar.vue'
+import MobileSidebarMenu from '../components/MobileSidebarMenu.vue'
+import SeedModal from '../components/SeedModal.vue'
+import SettingsModal from '../components/SettingsModal.vue'
 import Sidebar from '../components/Sidebar.vue'
 
 const sidebarOpen = ref(false)
+// Owned here, not by Sidebar.vue, so both the PC sidebar and
+// MobileSidebarMenu.vue's own mobile capsule can open the same
+// Settings/Seed modals through the same code path — see each component's
+// own @select handler below.
+const activeModal = ref<'settings' | 'seed' | null>(null)
 
 function openSidebar() {
   sidebarOpen.value = true
@@ -14,16 +22,32 @@ function openSidebar() {
 
 function closeSidebar() {
   sidebarOpen.value = false
+  // Matches Sidebar.vue's own former behavior: closing the panel
+  // mid-modal (e.g. via Escape, which closes both in one press) shouldn't
+  // leave a stale modal re-openable the next time the sidebar opens.
+  activeModal.value = null
+}
+
+function openModal(item: 'settings' | 'seed') {
+  activeModal.value = item
+}
+
+function closeModal() {
+  activeModal.value = null
 }
 </script>
 
 <template>
   <div class="game-view">
-    <Sidebar :open="sidebarOpen" @close="closeSidebar" />
+    <Sidebar :open="sidebarOpen" @close="closeSidebar" @select="openModal" />
     <GameToolbar :sidebar-open="sidebarOpen" @open-sidebar="openSidebar" />
     <GameBoard />
     <AutoFinishButton :sidebar-open="sidebarOpen" />
     <MobilePlayBar :sidebar-open="sidebarOpen" />
+    <MobileSidebarMenu @select="openModal" />
+
+    <SettingsModal v-if="activeModal === 'settings'" @close="closeModal" />
+    <SeedModal v-if="activeModal === 'seed'" @close="closeModal" />
   </div>
 </template>
 

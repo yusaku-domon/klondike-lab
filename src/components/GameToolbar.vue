@@ -98,10 +98,18 @@ const formattedElapsed = computed(() => {
            literal attribute inert="false" — which HTML treats as inert
            anyway, since the attribute's mere presence is what counts, not
            its value. undefined is what actually removes it (null would
-           too, but isn't a valid Booleanish per the type). -->
+           too, but isn't a valid Booleanish per the type).
+
+           PC-only as of the mobile capsule menu redesign: .sidebar-toggle--pc
+           hides this entirely at <=600px (see below), where
+           MobileSidebarMenu.vue's own hamburger button takes over the same
+           top-left role with a completely different (capsule) interaction —
+           this button's own trigger disappearing means Sidebar.vue's <aside>
+           can never actually open on mobile, so nothing else about it needs
+           to change there. -->
       <button
         type="button"
-        class="btn sidebar-toggle"
+        class="btn sidebar-toggle sidebar-toggle--pc"
         aria-label="サイドバーを開く"
         aria-controls="app-sidebar"
         aria-expanded="false"
@@ -271,6 +279,13 @@ const formattedElapsed = computed(() => {
    header" and "mobile bottom controls" placement for Undo/Pause/Redo/Auto. */
 @media (max-width: 600px) {
   .header-play-control {
+    display: none;
+  }
+
+  /* MobileSidebarMenu.vue's own hamburger button (a separate,
+     position: fixed component, not part of this row) takes over the
+     top-left "open the menu" role at this breakpoint instead. */
+  .sidebar-toggle--pc {
     display: none;
   }
 
