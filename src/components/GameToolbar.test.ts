@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { CARD_MOVE_ANIMATION_MS } from '../animationTiming'
 import { emptyState } from '../testFixtures'
+import { createCard } from '../domain/cards'
 import { useGameStore } from '../stores/game'
 import GameToolbar from './GameToolbar.vue'
 
@@ -116,11 +118,12 @@ describe('GameToolbar', () => {
   })
 
   describe('abbreviated/icon action buttons keep their full accessible name', () => {
-    it('labels New, Undo, Pause, and Auto with their un-abbreviated aria-label', () => {
+    it('labels New, Undo, Redo, Pause, and Auto with their un-abbreviated aria-label', () => {
       const { wrapper } = mountToolbar()
 
       expect(() => wrapper.get('[aria-label="New Game"]')).not.toThrow()
       expect(() => wrapper.get('[aria-label="Undo"]')).not.toThrow()
+      expect(() => wrapper.get('[aria-label="Redo"]')).not.toThrow()
       expect(() => wrapper.get('[aria-label="Pause"]')).not.toThrow()
       expect(() => wrapper.get('[aria-label="Auto Complete"]')).not.toThrow()
     })
@@ -132,6 +135,45 @@ describe('GameToolbar', () => {
 
       expect(wrapper.find('[aria-label="Pause"]').exists()).toBe(false)
       expect(() => wrapper.get('[aria-label="Resume"]')).not.toThrow()
+    })
+  })
+
+  describe('Redo button', () => {
+    beforeEach(() => vi.useFakeTimers())
+    afterEach(() => {
+      vi.clearAllTimers()
+      vi.useRealTimers()
+    })
+
+    it('is disabled until there is something to redo', async () => {
+      const { wrapper, store } = mountToolbar()
+      store.state = emptyState({ waste: [createCard('spades', 13, true)] })
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.get('[aria-label="Redo"]').attributes('disabled')).toBeDefined()
+
+      store.move({ from: { type: 'waste' }, to: { type: 'tableau', column: 0 } })
+      store.undo()
+      // Clears the move/undo animation lock so :disabled reflects canRedo
+      // alone, same as a real player waiting out the card's transition.
+      vi.advanceTimersByTime(CARD_MOVE_ANIMATION_MS)
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.get('[aria-label="Redo"]').attributes('disabled')).toBeUndefined()
+    })
+
+    it('redoes the last undone move when clicked', async () => {
+      const { wrapper, store } = mountToolbar()
+      store.state = emptyState({ waste: [createCard('spades', 13, true)] })
+      store.move({ from: { type: 'waste' }, to: { type: 'tableau', column: 0 } })
+      const afterMove = store.state
+      store.undo()
+      vi.advanceTimersByTime(CARD_MOVE_ANIMATION_MS)
+      await wrapper.vm.$nextTick()
+
+      await wrapper.get('[aria-label="Redo"]').trigger('click')
+
+      expect(store.state).toEqual(afterMove)
     })
   })
 })

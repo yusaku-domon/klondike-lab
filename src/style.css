@@ -61,6 +61,19 @@
      can never drift apart. */
   --sidebar-width: 270px;
 
+  /* Shared between MobilePlayBar.vue (the bar's own height and its gap from
+     the bottom edge) and GameBoard.vue (how much extra bottom padding to
+     reserve so a long tableau column's last card never sits behind the
+     bar), so the two can never drift apart. Only meaningful at the
+     <=600px breakpoint both components read independently (media queries
+     can't reference custom properties, so 600px is repeated as a literal
+     in each — see the comments there). */
+  --mobile-play-bar-height: 64px;
+  --mobile-play-bar-offset: 12px;
+  --mobile-play-bar-clearance: calc(
+    var(--mobile-play-bar-height) + (var(--mobile-play-bar-offset) * 2) + env(safe-area-inset-bottom)
+  );
+
   --card-back-pattern: repeating-linear-gradient(
     45deg,
     var(--color-card-back-a),

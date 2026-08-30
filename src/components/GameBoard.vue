@@ -652,6 +652,26 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
   box-sizing: border-box;
 }
 
+/* Keep this 600px literal in sync with MobilePlayBar.vue's/GameToolbar.vue's
+   own media queries — this is the same breakpoint where Undo/Pause/Redo
+   move into the fixed bottom bar. */
+@media (max-width: 600px) {
+  .game-board {
+    /* Reserves enough room below the last row of cards that the bar can
+       never sit over them, using the same height/offset tokens the bar
+       itself is built from (see style.css) rather than a second,
+       independently-guessed number. */
+    padding-bottom: calc((var(--card-width) / 3) + var(--mobile-play-bar-clearance));
+    /* .game-board's flex: 1 height would otherwise stretch to fit a long,
+       fully-revealed tableau column instead of respecting the space
+       actually available (flex items default to a content-based minimum
+       size unless overflow is something other than visible) — this both
+       fixes that and lets a column taller than the viewport still be
+       reached by scrolling, bar or no bar. */
+    overflow-y: auto;
+  }
+}
+
 .top-row {
   display: flex;
   gap: calc(var(--card-width) / 6);

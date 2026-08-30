@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import GameBoard from '../components/GameBoard.vue'
 import GameToolbar from '../components/GameToolbar.vue'
+import MobilePlayBar from '../components/MobilePlayBar.vue'
 import Sidebar from '../components/Sidebar.vue'
 
 const sidebarOpen = ref(false)
@@ -32,6 +33,7 @@ function handleSidebarFullyClosed() {
     <Sidebar :open="sidebarOpen" @close="closeSidebar" @fully-closed="handleSidebarFullyClosed" />
     <GameToolbar :show-sidebar-toggle="showSidebarToggle" @open-sidebar="openSidebar" />
     <GameBoard />
+    <MobilePlayBar :sidebar-open="sidebarOpen" />
   </div>
 </template>
 
