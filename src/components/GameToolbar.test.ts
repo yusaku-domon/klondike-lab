@@ -138,6 +138,27 @@ describe('GameToolbar', () => {
     })
   })
 
+  describe('New button', () => {
+    it('keeps a single button with both an icon and the "New" text label', () => {
+      const { wrapper } = mountToolbar()
+      const button = newGameButton(wrapper)
+
+      // A real SVG (not an emoji or text glyph) — hidden via CSS on PC,
+      // shown via CSS at <=600px, but always present in the one shared
+      // element so PC and mobile can never diverge in behavior.
+      expect(button.find('svg.new-btn-icon').exists()).toBe(true)
+      expect(button.find('.new-btn-label').text()).toBe('New')
+    })
+  })
+
+  describe('mobile-hidden header controls', () => {
+    it('marks Auto as a header-play-control alongside Undo/Redo/Pause', () => {
+      const { wrapper } = mountToolbar()
+
+      expect(wrapper.get('[aria-label="Auto Complete"]').classes()).toContain('header-play-control')
+    })
+  })
+
   describe('Redo button', () => {
     beforeEach(() => vi.useFakeTimers())
     afterEach(() => {

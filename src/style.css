@@ -52,7 +52,8 @@
      --z-blocking-overlay so the sidebar and any modal/confirmation dialog
      still win over it, unchanged. Otherwise (not paused) the bar stays at
      its default --z-card-layer tier, still behind the auto-complete
-     prompt and win banner. */
+     prompt and win banner. AutoFinishButton.vue has no equivalent tier —
+     see its own comment for why it never needs one. */
   --z-mobile-play-bar-paused: 3;
   --z-dropdown: 4;
   /* .game-board has position: relative but no z-index of its own, so it
@@ -82,6 +83,14 @@
   --mobile-play-bar-clearance: calc(
     var(--mobile-play-bar-height) + (var(--mobile-play-bar-offset) * 2) + env(safe-area-inset-bottom)
   );
+
+  /* AutoFinishButton.vue's own height and its gap above the play bar —
+     shared with GameBoard.vue so the board reserves enough bottom padding
+     for this button too, whether or not it's actually showing right now
+     (see the comment at that padding-bottom rule for why the reservation
+     stays static rather than growing/shrinking as the button appears). */
+  --mobile-auto-finish-height: 44px;
+  --mobile-auto-finish-gap: 12px;
 
   --card-back-pattern: repeating-linear-gradient(
     45deg,
