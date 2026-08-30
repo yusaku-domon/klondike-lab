@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { useGameStore } from '../stores/game'
 import SidebarToggleIcon from './SidebarToggleIcon.vue'
 
-defineProps<{ showSidebarToggle: boolean }>()
+defineProps<{ sidebarOpen: boolean }>()
 defineEmits<{ 'open-sidebar': [] }>()
 
 const store = useGameStore()
@@ -73,22 +73,39 @@ const formattedElapsed = computed(() => {
 <template>
   <div class="toolbar">
     <div class="actions">
-      <!-- Only ever represents "closed, click to open" — hidden the instant
-           it's clicked and only shown again once Sidebar.vue's own close
-           animation actually finishes (GameView.vue tracks that), so this
-           and Sidebar.vue's in-panel close button are never both visible.
-           This button never itself moves to sit inside the sidebar (that
-           was tried before and reads as visually "detached" from the panel
-           mid-slide) — instead the sidebar gets its OWN close button,
-           rendered as a real DOM child of the sliding <aside> so it moves
-           with zero position/transition logic of its own. -->
+      <!-- Only ever represents "closed, click to open" — this button never
+           itself moves to sit inside the sidebar (that was tried before and
+           reads as visually "detached" from the panel mid-slide); instead
+           the sidebar gets its OWN close button, rendered as a real DOM
+           child of the sliding <aside> so it moves with zero
+           position/transition logic of its own.
+
+           Always mounted, even while the sidebar is open — Sidebar.vue's
+           own panel sits at a higher z-index and spans the full viewport
+           height (including this header), so once it's open it already
+           covers this button's screen position on its own; there's nothing
+           for this component to track. inert strips it from focus/click/AT
+           exposure for that same span, so a keyboard user can never land on
+           a button that's invisible underneath the panel — mouse clicks are
+           already naturally caught by the (opaque, higher z-index) panel
+           regardless.
+
+           `sidebarOpen || undefined` rather than the bare boolean: inert
+           isn't in Vue's own runtime list of attributes it knows to omit
+           for a false value (unlike disabled/checked/etc. — its template
+           *types* say Booleanish, but that's not what the DOM patcher
+           actually special-cases), so :inert="false" would render the
+           literal attribute inert="false" — which HTML treats as inert
+           anyway, since the attribute's mere presence is what counts, not
+           its value. undefined is what actually removes it (null would
+           too, but isn't a valid Booleanish per the type). -->
       <button
-        v-if="showSidebarToggle"
         type="button"
         class="btn sidebar-toggle"
         aria-label="サイドバーを開く"
         aria-controls="app-sidebar"
         aria-expanded="false"
+        :inert="sidebarOpen || undefined"
         @click="$emit('open-sidebar')"
       >
         <SidebarToggleIcon :open="false" />

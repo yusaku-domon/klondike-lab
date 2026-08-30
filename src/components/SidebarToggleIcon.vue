@@ -1,15 +1,15 @@
 <script setup lang="ts">
 // Shared by GameToolbar.vue's header "open" button and Sidebar.vue's
-// in-panel "close" button, so the chevron artwork only exists once — each
-// caller just says which state it represents. The closed/"open" state
-// (open=false) shows the chevron alone; the lines only ever join it for the
-// open/"close" state, unchanged from before.
+// in-panel "close" button, so the closed/"open" state (open=false) and the
+// open/"close" state (open=true) each only exist once. The two states are
+// fully independent branches below — closed shows the chevron, open shows a
+// plain close (X) icon — so changing one can never affect the other.
 defineProps<{ open: boolean }>()
 </script>
 
 <template>
   <span class="toggle-icon" :class="{ 'toggle-icon--open': open }">
-    <svg class="toggle-icon__chevron" viewBox="0 0 6 10" aria-hidden="true" focusable="false">
+    <svg v-if="!open" class="toggle-icon__chevron" viewBox="0 0 6 10" aria-hidden="true" focusable="false">
       <path
         d="M1.2 1 L4.8 5 L1.2 9"
         fill="none"
@@ -19,43 +19,32 @@ defineProps<{ open: boolean }>()
         stroke-linejoin="round"
       />
     </svg>
-    <svg v-if="open" class="toggle-icon__lines" viewBox="0 0 14 10" aria-hidden="true" focusable="false">
-      <line x1="0" y1="1" x2="14" y2="1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
-      <line x1="0" y1="5" x2="14" y2="5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
-      <line x1="0" y1="9" x2="14" y2="9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+    <svg v-else class="toggle-icon__close" viewBox="0 0 14 14" aria-hidden="true" focusable="false">
+      <path
+        d="M3 3 L11 11 M11 3 L3 11"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.6"
+        stroke-linecap="round"
+      />
     </svg>
   </span>
 </template>
 
 <style scoped>
-/* The lines only ever mount for the open/"close" state; order still governs
-   which side of the chevron they land on there. */
 .toggle-icon {
   display: flex;
   align-items: center;
-  gap: 0.2rem;
+  justify-content: center;
 }
 
 .toggle-icon__chevron {
-  order: 0;
   width: 0.4rem;
   height: 0.65rem;
 }
 
-.toggle-icon__lines {
-  order: 1;
+.toggle-icon__close {
   width: 0.9rem;
-  height: 0.65rem;
-}
-
-.toggle-icon--open .toggle-icon__chevron {
-  order: 1;
-  /* Mirrors the same right-pointing path into a left-pointing one instead
-     of swapping in a second path — one <path> to keep in sync, not two. */
-  transform: scaleX(-1);
-}
-
-.toggle-icon--open .toggle-icon__lines {
-  order: 0;
+  height: 0.9rem;
 }
 </style>

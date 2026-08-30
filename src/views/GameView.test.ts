@@ -10,24 +10,20 @@ function mountView() {
   return mount(GameView, { global: { plugins: [pinia] } })
 }
 
-// Matches whichever of the two toggle buttons (header "open" button,
-// Sidebar.vue's in-panel "close" button) is currently rendered — the two
-// share this attribute, but per spec are never both present at once, so
-// this always resolves to at most one real element.
-function toggleControl(wrapper: ReturnType<typeof mount>) {
-  return wrapper.get('[aria-controls="app-sidebar"]')
+// The header's own "open" button — always mounted (see GameToolbar.vue's
+// own comment), regardless of whether the sidebar is currently open.
+function headerToggle(wrapper: ReturnType<typeof mount>) {
+  return wrapper.get('.toolbar [aria-controls="app-sidebar"]')
+}
+
+// The panel's own in-panel "close" button — a real DOM child of the
+// sliding <aside>, only mounted while open.
+function panelClose(wrapper: ReturnType<typeof mount>) {
+  return wrapper.get('aside#app-sidebar [aria-controls="app-sidebar"]')
 }
 
 function aside(wrapper: ReturnType<typeof mount>) {
   return wrapper.get('#app-sidebar')
-}
-
-async function endClosingTransition(wrapper: ReturnType<typeof mount>) {
-  // Sidebar.vue only treats this as "actually closed" once its own
-  // transitionend fires with propertyName: 'transform' while already
-  // closed — mirrors what the real 0.25s CSS transition does, without
-  // waiting on it in a unit test.
-  await aside(wrapper).trigger('transitionend', { propertyName: 'transform' })
 }
 
 beforeEach(() => {
@@ -42,98 +38,85 @@ beforeEach(() => {
 // z-index/transform), so this only checks the open/close wiring here, not
 // layout geometry — that's verified in the browser instead.
 describe('GameView sidebar integration', () => {
-  it('starts with only the header open-button shown', () => {
+  it('starts closed: only the header button exists, interactive, showing the opening state', () => {
     const wrapper = mountView()
 
     expect(aside(wrapper).classes()).not.toContain('sidebar--open')
     expect(wrapper.findAll('[aria-controls="app-sidebar"]')).toHaveLength(1)
-    expect(toggleControl(wrapper).attributes('aria-label')).toBe('サイドバーを開く')
-    expect(toggleControl(wrapper).attributes('aria-expanded')).toBe('false')
+    const toggle = headerToggle(wrapper)
+    expect(toggle.attributes('aria-label')).toBe('サイドバーを開く')
+    expect(toggle.attributes('aria-expanded')).toBe('false')
+    expect(toggle.attributes('inert')).toBeUndefined()
   })
 
-  it('hides the header button and shows the in-panel close button the instant it opens — before the slide even finishes', async () => {
+  it('opening mounts the in-panel close button without removing the header button, and makes it inert', async () => {
     const wrapper = mountView()
 
-    await toggleControl(wrapper).trigger('click')
+    await headerToggle(wrapper).trigger('click')
 
     expect(aside(wrapper).classes()).toContain('sidebar--open')
-    expect(wrapper.findAll('[aria-controls="app-sidebar"]')).toHaveLength(1)
-    const control = toggleControl(wrapper)
-    expect(control.attributes('aria-label')).toBe('サイドバーを閉じる')
-    expect(control.attributes('aria-expanded')).toBe('true')
-    // The close button must be a real descendant of the sliding <aside>
-    // itself, not a sibling positioned to merely look aligned with it.
-    expect(aside(wrapper).find('[aria-controls="app-sidebar"]').exists()).toBe(true)
+    // Both now exist at once — the header button is still mounted, just
+    // covered by the (higher z-index) open panel and inert; the panel's
+    // own close button is a real descendant of the sliding <aside>, not a
+    // sibling merely positioned to look aligned with it.
+    expect(wrapper.findAll('[aria-controls="app-sidebar"]')).toHaveLength(2)
+    expect(headerToggle(wrapper).attributes('inert')).toBeDefined()
+    const close = panelClose(wrapper)
+    expect(close.attributes('aria-label')).toBe('サイドバーを閉じる')
+    expect(close.attributes('aria-expanded')).toBe('true')
     expect(wrapper.find('[aria-label="Settings"]').exists()).toBe(true)
   })
 
-  it('does not bring the header button back until the closing transition actually ends', async () => {
+  it('closing (via the in-panel button) unmounts that button and makes the header button interactive again immediately', async () => {
     const wrapper = mountView()
-    await toggleControl(wrapper).trigger('click')
+    await headerToggle(wrapper).trigger('click')
 
-    await toggleControl(wrapper).trigger('click') // clicks the in-panel close button
+    await panelClose(wrapper).trigger('click')
 
-    // Still mid-slide-out: sidebarOpen is false, but neither button should
-    // be considered "the" reappeared header button yet — the sidebar's own
-    // close button unmounts immediately (v-if="open"), but the header
-    // button must wait for the transitionend signal.
+    // No transitionend/animation-completion wait needed — the header
+    // button's own interactivity is a direct function of sidebarOpen, not
+    // of whether the slide-out has visually finished.
     expect(aside(wrapper).classes()).not.toContain('sidebar--open')
-    expect(wrapper.find('[aria-controls="app-sidebar"]').exists()).toBe(false)
-
-    await endClosingTransition(wrapper)
-
     expect(wrapper.findAll('[aria-controls="app-sidebar"]')).toHaveLength(1)
-    expect(toggleControl(wrapper).attributes('aria-label')).toBe('サイドバーを開く')
+    expect(headerToggle(wrapper).attributes('inert')).toBeUndefined()
   })
 
-  it('does not reappear from the opening transition ending, only the closing one', async () => {
+  it('closes on Escape, restoring the header button immediately', async () => {
     const wrapper = mountView()
-    await toggleControl(wrapper).trigger('click')
-
-    // The panel's own opening slide finishes; sidebarOpen is still true.
-    await endClosingTransition(wrapper)
-
-    expect(toggleControl(wrapper).attributes('aria-label')).toBe('サイドバーを閉じる')
-  })
-
-  it('closes on Escape, then restores the header button once its transition ends', async () => {
-    const wrapper = mountView()
-    await toggleControl(wrapper).trigger('click')
+    await headerToggle(wrapper).trigger('click')
 
     await document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     await wrapper.vm.$nextTick()
+
     expect(aside(wrapper).classes()).not.toContain('sidebar--open')
-    expect(wrapper.find('[aria-controls="app-sidebar"]').exists()).toBe(false)
-
-    await endClosingTransition(wrapper)
-
-    expect(toggleControl(wrapper).attributes('aria-label')).toBe('サイドバーを開く')
+    expect(wrapper.findAll('[aria-controls="app-sidebar"]')).toHaveLength(1)
+    expect(headerToggle(wrapper).attributes('inert')).toBeUndefined()
   })
 
-  it('survives repeated open/close cycles without ever showing two controls at once', async () => {
+  it('survives repeated open/close cycles', async () => {
     const wrapper = mountView()
 
     for (let i = 0; i < 5; i++) {
-      await toggleControl(wrapper).trigger('click') // open
-      expect(wrapper.findAll('[aria-controls="app-sidebar"]').length).toBeLessThanOrEqual(1)
+      await headerToggle(wrapper).trigger('click') // open
+      expect(wrapper.findAll('[aria-controls="app-sidebar"]')).toHaveLength(2)
 
-      await toggleControl(wrapper).trigger('click') // close (in-panel button)
-      expect(wrapper.findAll('[aria-controls="app-sidebar"]').length).toBeLessThanOrEqual(1)
-
-      await endClosingTransition(wrapper) // header button reappears
+      await panelClose(wrapper).trigger('click') // close
       expect(wrapper.findAll('[aria-controls="app-sidebar"]')).toHaveLength(1)
     }
   })
 
-  it('swaps the chevron/lines order to match which button is showing, never both arrangements at once', async () => {
+  it('keeps each button on its own independent chevron/close-icon branch while both exist', async () => {
     const wrapper = mountView()
 
-    expect(toggleControl(wrapper).find('.toggle-icon').classes()).not.toContain('toggle-icon--open')
-    expect(wrapper.findAll('.toggle-icon')).toHaveLength(1)
+    expect(headerToggle(wrapper).find('.toggle-icon').classes()).not.toContain('toggle-icon--open')
 
-    await toggleControl(wrapper).trigger('click')
+    await headerToggle(wrapper).trigger('click')
 
-    expect(toggleControl(wrapper).find('.toggle-icon').classes()).toContain('toggle-icon--open')
-    expect(wrapper.findAll('.toggle-icon')).toHaveLength(1)
+    // The header button's own icon never changes — it always represents
+    // "closed, click to open", independent of the panel's own close icon.
+    expect(headerToggle(wrapper).find('.toggle-icon').classes()).not.toContain('toggle-icon--open')
+    expect(headerToggle(wrapper).find('.toggle-icon__chevron').exists()).toBe(true)
+    expect(panelClose(wrapper).find('.toggle-icon').classes()).toContain('toggle-icon--open')
+    expect(panelClose(wrapper).find('.toggle-icon__close').exists()).toBe(true)
   })
 })

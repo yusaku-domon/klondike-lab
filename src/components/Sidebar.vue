@@ -5,10 +5,9 @@ import SettingsModal from './SettingsModal.vue'
 import SidebarToggleIcon from './SidebarToggleIcon.vue'
 
 const props = defineProps<{ open: boolean }>()
-const emit = defineEmits<{ close: []; 'fully-closed': [] }>()
+const emit = defineEmits<{ close: [] }>()
 
 const activeModal = ref<'settings' | 'seed' | null>(null)
-const asideEl = ref<HTMLElement | null>(null)
 
 function closeModal() {
   activeModal.value = null
@@ -16,17 +15,6 @@ function closeModal() {
 
 function handleKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') emit('close')
-}
-
-// Fires for both the opening and closing slide — only the closing one
-// (props.open already false by the time its own transition ends) should
-// tell GameView.vue it's safe to show the header's open button again.
-// event.target excludes bubbled transitionend from unrelated descendants
-// (e.g. a modal's own transitions, if it ever gets one).
-function handleTransitionEnd(event: TransitionEvent) {
-  if (event.target !== asideEl.value) return
-  if (event.propertyName !== 'transform') return
-  if (!props.open) emit('fully-closed')
 }
 
 // Only listens while open, so Escape presses elsewhere in the app (e.g. a
@@ -51,13 +39,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <aside
-    id="app-sidebar"
-    ref="asideEl"
-    class="sidebar"
-    :class="{ 'sidebar--open': open }"
-    @transitionend="handleTransitionEnd"
-  >
+  <aside id="app-sidebar" class="sidebar" :class="{ 'sidebar--open': open }">
     <!-- A real DOM child of the sliding <aside>, not a separately
          positioned/animated element — it has no transform or transition
          of its own, so it rides along with the panel's own slide with

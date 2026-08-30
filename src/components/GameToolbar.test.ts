@@ -8,12 +8,12 @@ import { createCard } from '../domain/cards'
 import { useGameStore } from '../stores/game'
 import GameToolbar from './GameToolbar.vue'
 
-function mountToolbar(showSidebarToggle = true) {
+function mountToolbar(sidebarOpen = false) {
   const pinia = createPinia()
   setActivePinia(pinia)
   const store = useGameStore()
   const wrapper = mount(GameToolbar, {
-    props: { showSidebarToggle },
+    props: { sidebarOpen },
     global: { plugins: [pinia] },
   })
   return { wrapper, store }
@@ -92,24 +92,40 @@ describe('GameToolbar', () => {
       return wrapper.get('[aria-controls="app-sidebar"]')
     }
 
-    it('always represents the closed state: aria-expanded false, opening label, chevron before the lines', () => {
-      const { wrapper } = mountToolbar(true)
+    it('always represents the closed state: aria-expanded false, opening label, chevron icon', () => {
+      const { wrapper } = mountToolbar(false)
       const toggle = toggleButton(wrapper)
 
       expect(toggle.attributes('aria-expanded')).toBe('false')
       expect(toggle.attributes('aria-label')).toBe('サイドバーを開く')
       expect(toggle.attributes('aria-controls')).toBe('app-sidebar')
       expect(toggle.find('.toggle-icon').classes()).not.toContain('toggle-icon--open')
+      // The chevron, never the in-panel close button's X — that branch is
+      // fully independent (see SidebarToggleIcon.vue).
+      expect(toggle.find('.toggle-icon__chevron').exists()).toBe(true)
+      expect(toggle.find('.toggle-icon__close').exists()).toBe(false)
     })
 
-    it('is not rendered at all while showSidebarToggle is false', () => {
+    it('stays mounted (not removed) while the sidebar is open, but is inert', () => {
+      const { wrapper } = mountToolbar(true)
+      const toggle = toggleButton(wrapper)
+
+      // Not v-if-removed (toggleButton()'s own .get() above already proves
+      // it exists) — Sidebar.vue's own panel is what visually covers it in
+      // this state (see the component's own comment) — but inert so a
+      // keyboard user can't focus or activate a button that's invisible
+      // underneath that panel.
+      expect(toggle.attributes('inert')).toBeDefined()
+    })
+
+    it('is not inert while the sidebar is closed', () => {
       const { wrapper } = mountToolbar(false)
 
-      expect(wrapper.find('[aria-controls="app-sidebar"]').exists()).toBe(false)
+      expect(toggleButton(wrapper).attributes('inert')).toBeUndefined()
     })
 
     it('emits open-sidebar when clicked', async () => {
-      const { wrapper } = mountToolbar(true)
+      const { wrapper } = mountToolbar(false)
 
       await toggleButton(wrapper).trigger('click')
 
