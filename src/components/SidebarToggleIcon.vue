@@ -1,7 +1,9 @@
 <script setup lang="ts">
 // Shared by GameToolbar.vue's header "open" button and Sidebar.vue's
-// in-panel "close" button, so the chevron/lines artwork only exists once —
-// each caller just says which state it represents.
+// in-panel "close" button, so the chevron artwork only exists once — each
+// caller just says which state it represents. The closed/"open" state
+// (open=false) shows the chevron alone; the lines only ever join it for the
+// open/"close" state, unchanged from before.
 defineProps<{ open: boolean }>()
 </script>
 
@@ -17,7 +19,7 @@ defineProps<{ open: boolean }>()
         stroke-linejoin="round"
       />
     </svg>
-    <svg class="toggle-icon__lines" viewBox="0 0 14 10" aria-hidden="true" focusable="false">
+    <svg v-if="open" class="toggle-icon__lines" viewBox="0 0 14 10" aria-hidden="true" focusable="false">
       <line x1="0" y1="1" x2="14" y2="1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
       <line x1="0" y1="5" x2="14" y2="5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
       <line x1="0" y1="9" x2="14" y2="9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
@@ -26,10 +28,8 @@ defineProps<{ open: boolean }>()
 </template>
 
 <style scoped>
-/* Chevron and lines are laid out with flex `order`, not separate v-if
-   branches — both SVGs stay mounted the whole time and just swap
-   position/direction, so there's never a moment with both variants (or
-   neither) in the DOM. */
+/* The lines only ever mount for the open/"close" state; order still governs
+   which side of the chevron they land on there. */
 .toggle-icon {
   display: flex;
   align-items: center;
