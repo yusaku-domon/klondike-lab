@@ -18,6 +18,13 @@ function generateSeed(): ShuffleSeed {
 export const useGameStore = defineStore('game', () => {
   const state = shallowRef<GameState>(loadGame() ?? createInitialGameState(generateSeed()))
   const history = shallowRef<GameState[]>([])
+  // Populated only by undo() (the state it's moving away from) and drained
+  // only by redo() — any other state-changing action (a move, a stock
+  // click, a completed auto-complete cascade, a new game) clears it, since
+  // those start a genuinely new branch that the discarded future no longer
+  // applies to. Not persisted, same as `history` — a reload always starts
+  // both stacks empty.
+  const redoHistory = shallowRef<GameState[]>([])
   const seedHistory = shallowRef<SeedHistoryEntry[]>(loadSeedHistory())
 
   // Bumped only by newGame(), never by a move/undo. UI layers (GameBoard)
@@ -28,6 +35,7 @@ export const useGameStore = defineStore('game', () => {
   const gameEpoch = shallowRef(0)
 
   const canUndo = computed(() => history.value.length > 0 && state.value.status === 'playing')
+  const canRedo = computed(() => redoHistory.value.length > 0 && state.value.status === 'playing')
   const isWon = computed(() => state.value.status === 'won')
   const isPlayable = computed(() => state.value.status === 'playing')
   const canAutoComplete = computed(() => canAutoCompleteState(state.value))
@@ -137,6 +145,10 @@ export const useGameStore = defineStore('game', () => {
     const previous = state.value
     if (next === previous) return false
     pushHistory(previous)
+    // A genuinely new forward action — the discarded future in
+    // redoHistory (if any, left over from an earlier undo) no longer
+    // leads anywhere from here.
+    redoHistory.value = []
     state.value = next
     persist()
     syncTimer()
@@ -155,6 +167,7 @@ export const useGameStore = defineStore('game', () => {
     }
     state.value = createInitialGameState(seed)
     history.value = []
+    redoHistory.value = []
     persist()
     syncTimer()
     // A fresh deal replaces every card position outright; any lock from a
@@ -237,6 +250,9 @@ export const useGameStore = defineStore('game', () => {
     if (gameEpoch.value !== startEpoch) return
 
     pushHistory(previous)
+    // Same reasoning as applyIfChanged: the cascade is a new forward
+    // action (as one atomic undo step), so any pending redo is stale.
+    redoHistory.value = []
     persist()
     // Cleared before syncTimer() so it can actually restart the clock now
     // that the cascade is genuinely finished (syncTimer() itself refuses
@@ -251,6 +267,25 @@ export const useGameStore = defineStore('game', () => {
     const remaining = [...history.value]
     const restored = remaining.pop()!
     history.value = remaining
+    // The state being moved away from becomes redoable.
+    redoHistory.value = [...redoHistory.value, state.value]
+    state.value = restored
+    persist()
+    syncTimer()
+    triggerMoveAnimation()
+  }
+
+  function redo() {
+    if (redoHistory.value.length === 0) return
+    const remaining = [...redoHistory.value]
+    const restored = remaining.pop()!
+    redoHistory.value = remaining
+    // Reuses the same capped push as any other forward action, so redoing
+    // past MAX_UNDO_HISTORY moves still evicts the oldest undo entry
+    // exactly like a fresh move would — but doesn't go through
+    // applyIfChanged, since that would also (incorrectly) clear the redo
+    // stack this action is itself draining.
+    pushHistory(state.value)
     state.value = restored
     persist()
     syncTimer()
@@ -305,6 +340,7 @@ export const useGameStore = defineStore('game', () => {
     state,
     seedHistory,
     canUndo,
+    canRedo,
     isWon,
     isPlayable,
     canAutoComplete,
@@ -315,6 +351,7 @@ export const useGameStore = defineStore('game', () => {
     clickStock,
     move,
     undo,
+    redo,
     pause,
     resume,
     autoComplete,

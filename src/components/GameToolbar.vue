@@ -52,6 +52,11 @@ function handleUndo() {
   store.undo()
 }
 
+function handleRedo() {
+  if (store.isAnimating) return
+  store.redo()
+}
+
 function handleAutoComplete() {
   if (store.isAnimating) return
   store.autoComplete()
@@ -89,9 +94,15 @@ const formattedElapsed = computed(() => {
         <SidebarToggleIcon :open="false" />
       </button>
       <button type="button" class="btn" aria-label="New Game" @click="startNewGame">New</button>
+      <!-- These three (Undo/Pause/Redo) are the ones that move to
+           MobilePlayBar.vue's fixed bottom bar at the same ≤600px
+           breakpoint — .header-play-control hides them here so they're
+           never shown (or clickable) in both places at once. New/Auto/the
+           sidebar toggle and the stats below are unaffected and stay put
+           on every screen size. -->
       <button
         type="button"
-        class="btn icon-btn"
+        class="btn icon-btn header-play-control"
         aria-label="Undo"
         :disabled="!store.canUndo || store.isAnimating"
         @click="handleUndo"
@@ -100,7 +111,16 @@ const formattedElapsed = computed(() => {
       </button>
       <button
         type="button"
-        class="btn icon-btn"
+        class="btn icon-btn header-play-control"
+        aria-label="Redo"
+        :disabled="!store.canRedo || store.isAnimating"
+        @click="handleRedo"
+      >
+        <span class="icon-mirror">↩</span>
+      </button>
+      <button
+        type="button"
+        class="btn icon-btn header-play-control"
         :aria-label="store.state.status === 'paused' ? 'Resume' : 'Pause'"
         :disabled="store.isWon"
         @click="togglePause"
@@ -190,6 +210,26 @@ const formattedElapsed = computed(() => {
   font-weight: 400;
   font-size: 1.25rem;
   line-height: 1;
+}
+
+/* Redo reuses Undo's own glyph mirrored, rather than a second distinct
+   character — same technique as SidebarToggleIcon.vue's chevron, and
+   guarantees an identical pixel-art rendering instead of hoping Press
+   Start 2P also ships a dedicated "redo" glyph. Scoped to this inner span
+   (not the button itself) so it never fights .btn:active's own transform
+   on press. */
+.icon-mirror {
+  display: inline-block;
+  transform: scaleX(-1);
+}
+
+/* Keep in sync with MobilePlayBar.vue's own breakpoint — both read from
+   the same 600px cutoff between "desktop header" and "mobile bottom bar"
+   placement for Undo/Pause/Redo. */
+@media (max-width: 600px) {
+  .header-play-control {
+    display: none;
+  }
 }
 
 .stats {

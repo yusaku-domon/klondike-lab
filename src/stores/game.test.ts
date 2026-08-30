@@ -222,6 +222,316 @@ describe('useGameStore', () => {
     expect(undoCount).toBe(100)
   })
 
+  describe('redo', () => {
+    it('starts with no redo history', () => {
+      const store = useGameStore()
+      expect(store.canRedo).toBe(false)
+    })
+
+    it('replays a single undone card move exactly', () => {
+      const store = useGameStore()
+      store.state = emptyState({ waste: [createCard('spades', 13, true)] })
+
+      store.move({ from: { type: 'waste' }, to: { type: 'tableau', column: 0 } })
+      const afterMove = store.state
+
+      store.undo()
+      expect(store.canRedo).toBe(true)
+
+      store.redo()
+
+      expect(store.state).toEqual(afterMove)
+      expect(store.canRedo).toBe(false)
+      expect(store.canUndo).toBe(true)
+    })
+
+    it('replays an undone stock draw exactly', () => {
+      const store = useGameStore()
+      store.state = emptyState({ stock: [createCard('clubs', 1, false)] })
+
+      store.clickStock()
+      const afterDraw = store.state
+
+      store.undo()
+      store.redo()
+
+      expect(store.state).toEqual(afterDraw)
+    })
+
+    it('replays an undone multi-card tableau move exactly', () => {
+      const store = useGameStore()
+      store.state = emptyState({
+        tableau: [
+          [createCard('hearts', 6, true), createCard('clubs', 5, true)],
+          [createCard('spades', 7, true)],
+          [],
+          [],
+          [],
+          [],
+          [],
+        ],
+      })
+
+      store.move({ from: { type: 'tableau', column: 0, cardIndex: 0 }, to: { type: 'tableau', column: 1 } })
+      const afterMove = store.state
+      expect(afterMove.tableau[1]).toHaveLength(3)
+
+      store.undo()
+      store.redo()
+
+      expect(store.state).toEqual(afterMove)
+    })
+
+    it('replays an undone stock recycle (waste back to stock) exactly', () => {
+      const store = useGameStore()
+      store.state = emptyState({ waste: [createCard('clubs', 1, true), createCard('clubs', 2, true)] })
+
+      store.clickStock()
+      const afterRecycle = store.state
+      expect(afterRecycle.stock).toHaveLength(2)
+      expect(afterRecycle.waste).toHaveLength(0)
+
+      store.undo()
+      store.redo()
+
+      expect(store.state).toEqual(afterRecycle)
+    })
+
+    it('replays an undone tableau-flip (revealing the new top card) exactly', () => {
+      const store = useGameStore()
+      store.state = emptyState({
+        tableau: [
+          [createCard('clubs', 9, false), createCard('spades', 13, true)],
+          [],
+          [],
+          [],
+          [],
+          [],
+          [],
+        ],
+      })
+
+      // Only an empty column accepts a King — moves it off column 0
+      // entirely, exposing (and auto-flipping) clubs-9 underneath.
+      store.move({ from: { type: 'tableau', column: 0, cardIndex: 1 }, to: { type: 'tableau', column: 1 } })
+      const afterFlip = store.state
+      expect(afterFlip.tableau[0]).toEqual([createCard('clubs', 9, true)])
+
+      store.undo()
+      store.redo()
+
+      expect(store.state).toEqual(afterFlip)
+    })
+
+    it('replays an undone move to a foundation exactly', () => {
+      const store = useGameStore()
+      store.state = emptyState({ waste: [createCard('hearts', 1, true)] })
+
+      store.move({ from: { type: 'waste' }, to: { type: 'foundation', suit: 'hearts' } })
+      const afterMove = store.state
+      expect(afterMove.foundations.hearts).toEqual([createCard('hearts', 1, true)])
+
+      store.undo()
+      store.redo()
+
+      expect(store.state).toEqual(afterMove)
+    })
+
+    it('replays multiple undone moves in order across consecutive redos', () => {
+      const store = useGameStore()
+      store.state = emptyState({
+        stock: [createCard('clubs', 1, false), createCard('clubs', 2, false), createCard('clubs', 3, false)],
+      })
+
+      store.clickStock()
+      const afterFirst = store.state
+      store.clickStock()
+      const afterSecond = store.state
+      store.clickStock()
+      const afterThird = store.state
+
+      store.undo()
+      store.undo()
+      store.undo()
+      expect(store.canRedo).toBe(true)
+
+      store.redo()
+      expect(store.state).toEqual(afterFirst)
+      store.redo()
+      expect(store.state).toEqual(afterSecond)
+      store.redo()
+      expect(store.state).toEqual(afterThird)
+      expect(store.canRedo).toBe(false)
+    })
+
+    it('allows undoing again after a redo', () => {
+      const store = useGameStore()
+      store.state = emptyState({ waste: [createCard('spades', 13, true)] })
+      const original = store.state
+
+      store.move({ from: { type: 'waste' }, to: { type: 'tableau', column: 0 } })
+      const afterMove = store.state
+
+      store.undo()
+      store.redo()
+      expect(store.state).toEqual(afterMove)
+
+      store.undo()
+
+      expect(store.state).toEqual(original)
+    })
+
+    it('discards all redo history once a new move is made after an undo', () => {
+      const store = useGameStore()
+      store.state = emptyState({
+        stock: [createCard('clubs', 1, false), createCard('clubs', 2, false)],
+      })
+
+      store.clickStock()
+      store.undo()
+      expect(store.canRedo).toBe(true)
+
+      // A genuinely new forward action, not a redo.
+      store.clickStock()
+
+      expect(store.canRedo).toBe(false)
+    })
+
+    it('discards all redo history once a new auto-complete cascade runs after an undo', async () => {
+      const store = useGameStore()
+      store.state = emptyState({
+        foundations: { clubs: [createCard('clubs', 4, true)], diamonds: [], hearts: [], spades: [] },
+        tableau: [[createCard('clubs', 5, true)], [], [], [], [], [], []],
+      })
+
+      store.move({ from: { type: 'tableau', column: 0, cardIndex: 0 }, to: { type: 'foundation', suit: 'clubs' } })
+      store.undo()
+      // Clears undo()'s own animation lock so autoComplete's isAnimating
+      // guard doesn't reject it as a no-op immediately below.
+      vi.advanceTimersByTime(CARD_MOVE_ANIMATION_MS)
+      expect(store.canRedo).toBe(true)
+      expect(store.canAutoComplete).toBe(true)
+
+      const done = store.autoComplete()
+      await vi.advanceTimersByTimeAsync(AUTO_COMPLETE_CARD_MOVE_ANIMATION_MS)
+      await done
+
+      expect(store.canRedo).toBe(false)
+    })
+
+    it('does not discard redo history across pause/resume', () => {
+      const store = useGameStore()
+      store.state = emptyState({ waste: [createCard('spades', 13, true)] })
+
+      store.move({ from: { type: 'waste' }, to: { type: 'tableau', column: 0 } })
+      store.undo()
+      expect(store.canRedo).toBe(true)
+
+      store.pause()
+      store.resume()
+
+      expect(store.canRedo).toBe(true)
+    })
+
+    it('clears both undo and redo history on newGame', () => {
+      const store = useGameStore()
+      store.state = emptyState({ waste: [createCard('spades', 13, true)] })
+
+      store.move({ from: { type: 'waste' }, to: { type: 'tableau', column: 0 } })
+      store.undo()
+      expect(store.canUndo).toBe(false)
+      expect(store.canRedo).toBe(true)
+
+      store.newGame(1)
+
+      expect(store.canUndo).toBe(false)
+      expect(store.canRedo).toBe(false)
+    })
+
+    it('redo is a no-op once redo history is exhausted', () => {
+      const store = useGameStore()
+      const before = store.state
+
+      store.redo()
+
+      expect(store.state).toBe(before)
+    })
+
+    it('is unavailable while paused, even with redo history present', () => {
+      const store = useGameStore()
+      store.state = emptyState({ waste: [createCard('spades', 13, true)] })
+
+      store.move({ from: { type: 'waste' }, to: { type: 'tableau', column: 0 } })
+      store.undo()
+      expect(store.canRedo).toBe(true)
+
+      store.pause()
+
+      expect(store.canRedo).toBe(false)
+    })
+
+    it('does not double-count score or moveCount across an undo/redo round trip', () => {
+      const store = useGameStore()
+      store.state = emptyState({ waste: [createCard('hearts', 1, true)] })
+
+      store.move({ from: { type: 'waste' }, to: { type: 'foundation', suit: 'hearts' } })
+      const scoreAfterMove = store.state.score
+      const movesAfterMove = store.state.moveCount
+
+      store.undo()
+      store.redo()
+
+      expect(store.state.score).toBe(scoreAfterMove)
+      expect(store.state.moveCount).toBe(movesAfterMove)
+    })
+
+    it('persists the redone state, and does not persist undo/redo history itself', () => {
+      const store = useGameStore()
+      store.state = emptyState({ waste: [createCard('spades', 13, true)] })
+
+      store.move({ from: { type: 'waste' }, to: { type: 'tableau', column: 0 } })
+      const afterMove = store.state
+      store.undo()
+      store.redo()
+
+      expect(readPersistedState()).toEqual(afterMove)
+    })
+
+    it('reload (a fresh store instance) always starts with empty undo and redo history', () => {
+      const first = useGameStore()
+      first.state = emptyState({ waste: [createCard('spades', 13, true)] })
+      first.move({ from: { type: 'waste' }, to: { type: 'tableau', column: 0 } })
+      first.undo()
+      expect(first.canRedo).toBe(true)
+
+      // Simulates a reload: a brand-new store instance loading from
+      // whatever was persisted, same as restoring a saved game elsewhere
+      // in this file.
+      setActivePinia(createPinia())
+      const second = useGameStore()
+
+      expect(second.canUndo).toBe(false)
+      expect(second.canRedo).toBe(false)
+    })
+
+    it('does not register redo() itself as a new undoable action', () => {
+      const store = useGameStore()
+      store.state = emptyState({ waste: [createCard('spades', 13, true)] })
+      const original = store.state
+
+      store.move({ from: { type: 'waste' }, to: { type: 'tableau', column: 0 } })
+      store.undo()
+      store.redo()
+
+      // One undo step to get back to `original` — not two, which would
+      // happen if redo() had pushed an extra, spurious history entry on
+      // top of the one it legitimately pushes to make itself undoable.
+      store.undo()
+      expect(store.state).toEqual(original)
+      expect(store.canUndo).toBe(false)
+    })
+  })
+
   it('restores a previously saved game on creation instead of starting fresh', () => {
     const saved = createInitialGameState(777)
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ state: saved, savedAt: 0 }))
