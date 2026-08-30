@@ -284,8 +284,18 @@ const formattedElapsed = computed(() => {
 
   /* MobileSidebarMenu.vue's own hamburger button (a separate,
      position: fixed component, not part of this row) takes over the
-     top-left "open the menu" role at this breakpoint instead. */
-  .sidebar-toggle--pc {
+     top-left "open the menu" role at this breakpoint instead.
+
+     .btn.sidebar-toggle.sidebar-toggle--pc (three classes, not just
+     .sidebar-toggle--pc alone): style.css's own global .btn.sidebar-toggle
+     rule (two classes) sets display: inline-flex at equal (0,2,0)
+     specificity to a plain .sidebar-toggle--pc selector, and — since that
+     global rule happens to be injected later in the final stylesheet —
+     was winning the tie on source order alone, leaving this button
+     visible (and, as a flex item, blockified to display: flex) instead of
+     hidden. Matching all three classes here (0,3,0) wins unconditionally,
+     regardless of injection order. */
+  .btn.sidebar-toggle.sidebar-toggle--pc {
     display: none;
   }
 

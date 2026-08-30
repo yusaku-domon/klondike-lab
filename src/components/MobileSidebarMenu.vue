@@ -191,11 +191,15 @@ onBeforeUnmount(() => {
   }
 
   .mobile-sidebar-menu--open {
-    /* Within the spec's 72-88px range. */
-    width: 80px;
-    /* Just tall enough for the toggle button (44px) plus two 44px menu
-       items — never stretches to the bottom of the screen. */
-    height: 140px;
+    /* Narrow enough that "Settings" (the longer of the two labels, ~46px
+       at this font) sits with about one character's width (~7-8px) of
+       breathing room on each side, rather than the wide margin a flat
+       72-88px would leave once the label is centered under its icon. */
+    width: 68px;
+    /* The two 44px menu items plus a bit of extra room below "Seed" (on
+       top of the toggle button's own 44px) — still well short of the
+       screen's bottom edge. */
+    height: 148px;
   }
 }
 
@@ -211,6 +215,18 @@ onBeforeUnmount(() => {
   background: transparent;
   color: var(--color-sidebar-toggle-accent);
   cursor: pointer;
+  /* Without this, mobile browsers draw their own tap-highlight/outline
+     sized to this button's box AT THE MOMENT OF TAP — the collapsed 44x44
+     circle — and don't re-anchor it once that same tap's click handler
+     grows the shell into the taller capsule, leaving a static "ghost"
+     circle overlapping the capsule's own top corner. Replaced below with
+     a custom :focus-visible ring that isn't tied to tap-time geometry. */
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.menu-toggle:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--color-text-on-dark);
 }
 
 .menu-toggle-icon {
@@ -244,18 +260,27 @@ onBeforeUnmount(() => {
   flex: none;
   width: 100%;
   min-height: 2.75rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0 0.75rem;
   box-sizing: border-box;
+  /* Icon above label, not side-by-side — a horizontal row never fit
+     "Settings" within the capsule's own 72-88px width without either
+     wrapping or (with the shell's overflow: hidden, needed for the
+     grow-reveal effect) silently clipping it. Stacked, each line only
+     needs to fit the label's own width, not icon + gap + label. */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 2px;
   appearance: none;
   border: none;
   background: none;
   color: var(--color-text-on-dark);
   font: inherit;
-  text-align: left;
+  text-align: center;
   cursor: pointer;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .menu-item:hover,
@@ -265,13 +290,14 @@ onBeforeUnmount(() => {
 }
 
 .menu-item-icon {
-  width: 1.1rem;
-  height: 1.1rem;
+  width: 1rem;
+  height: 1rem;
   flex: none;
 }
 
 .menu-item-label {
-  font-size: 0.8rem;
+  font-size: 0.7rem;
+  line-height: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {
