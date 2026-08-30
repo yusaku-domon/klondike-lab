@@ -121,33 +121,37 @@ onBeforeUnmount(() => {
 
     <nav v-show="open" id="mobile-sidebar-menu-panel" class="menu-panel" aria-label="Sidebar menu">
       <button type="button" class="menu-item" aria-label="Settings" @click="select('settings')">
-        <svg class="menu-item-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-          <circle cx="10" cy="10" r="3" stroke="currentColor" stroke-width="1.4" />
-          <path
-            d="M10 2 V4 M10 16 V18 M2 10 H4 M16 10 H18 M4.5 4.5 L5.9 5.9 M14.1 14.1 L15.5 15.5 M4.5 15.5 L5.9 14.1 M14.1 5.9 L15.5 4.5"
-            stroke="currentColor"
-            stroke-width="1.4"
-            stroke-linecap="round"
-          />
-        </svg>
+        <span class="menu-item-icon-wrap">
+          <svg class="menu-item-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <circle cx="10" cy="10" r="3" stroke="currentColor" stroke-width="1.4" />
+            <path
+              d="M10 2 V4 M10 16 V18 M2 10 H4 M16 10 H18 M4.5 4.5 L5.9 5.9 M14.1 14.1 L15.5 15.5 M4.5 15.5 L5.9 14.1 M14.1 5.9 L15.5 4.5"
+              stroke="currentColor"
+              stroke-width="1.4"
+              stroke-linecap="round"
+            />
+          </svg>
+        </span>
         <span class="menu-item-label">Settings</span>
       </button>
       <button type="button" class="menu-item" aria-label="Seed" @click="select('seed')">
-        <svg class="menu-item-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-          <path d="M10 18 V10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
-          <path
-            d="M10 10 C10 6 6 5 4 5 C4 8 6 10 10 10 Z"
-            stroke="currentColor"
-            stroke-width="1.4"
-            stroke-linejoin="round"
-          />
-          <path
-            d="M10 10 C10 7 13 6 15 6 C15 9 13 10 10 10 Z"
-            stroke="currentColor"
-            stroke-width="1.4"
-            stroke-linejoin="round"
-          />
-        </svg>
+        <span class="menu-item-icon-wrap">
+          <svg class="menu-item-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M10 18 V10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+            <path
+              d="M10 10 C10 6 6 5 4 5 C4 8 6 10 10 10 Z"
+              stroke="currentColor"
+              stroke-width="1.4"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M10 10 C10 7 13 6 15 6 C15 9 13 10 10 10 Z"
+              stroke="currentColor"
+              stroke-width="1.4"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </span>
         <span class="menu-item-label">Seed</span>
       </button>
     </nav>
@@ -283,9 +287,22 @@ onBeforeUnmount(() => {
   -webkit-tap-highlight-color: transparent;
 }
 
-.menu-item:hover,
-.menu-item:focus-visible,
-.menu-item:active {
+/* The hover/focus/press highlight sits behind just the icon (a rounded
+   square, not the whole row) — same pattern as a typical mobile tab-bar
+   icon badge — rather than lighting up the label's own text too. */
+.menu-item-icon-wrap {
+  width: 1.75rem;
+  height: 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  transition: background 0.1s ease-out;
+}
+
+.menu-item:hover .menu-item-icon-wrap,
+.menu-item:focus-visible .menu-item-icon-wrap,
+.menu-item:active .menu-item-icon-wrap {
   background: rgba(255, 255, 255, 0.08);
 }
 
