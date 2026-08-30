@@ -159,7 +159,12 @@ const formattedElapsed = computed(() => {
   align-items: center;
   gap: 1.5rem;
   padding: 0.5rem 1rem;
-  background: var(--color-felt-dark);
+  /* Semi-transparent rather than opaque var(--color-felt-dark) (#0b3d24)
+     so GameView.vue's felt background shows faintly through the header,
+     tying it visually to the board below. Only this background-color has
+     alpha — opacity on .toolbar itself would also fade the buttons/text
+     inside it, which must stay fully opaque. */
+  background-color: rgba(11, 61, 36, 0.85);
   color: var(--color-text-on-dark);
 }
 

@@ -104,16 +104,22 @@ onBeforeUnmount(() => {
   width: var(--sidebar-width);
   box-sizing: border-box;
   background: var(--color-felt-dark);
-  border-right: 1px solid rgba(0, 0, 0, 0.12);
-  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
   z-index: var(--z-dropdown);
   transform: translateX(-100%);
   transition: transform 0.25s ease;
   overflow-y: auto;
 }
 
+/* Root cause of a reported dark line down the left/top edge of the game
+   board: box-shadow (and border-right) paint outside the element's own
+   box, so even with the panel fully translated off-screen at rest, its
+   shadow's blur/offset still reached back onto the visible viewport edge.
+   Scoped to the open state only — there's nothing to visually separate
+   the panel from while it isn't shown anyway. */
 .sidebar--open {
   transform: translateX(0);
+  border-right: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
 }
 
 /* position: absolute against the <aside> (already positioned via its own

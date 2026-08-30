@@ -614,7 +614,16 @@ const selectedCardIds = computed<ReadonlySet<string>>(() => {
      shrinks in step with the cards instead of eating into the width the
      7-column fit calculation already accounts for. */
   padding: calc(var(--card-width) / 3);
-  background: var(--color-felt);
+  /* The felt image itself lives on the shared parent (GameView.vue's
+     .game-view) so it paints as one continuous, seamlessly-positioned
+     surface behind both this and the header, rather than two
+     independently-cropped copies that could visibly misalign at the
+     seam between them. This flat rgba(14,122,68,0.8) layer is this
+     component's own dimming step on top of that shared texture — mutes
+     the fabric's own light/dark weave down to roughly 20% strength (a
+     flat CSS overlay, not a re-edit of the image file) so cards read as
+     the focal point, with the felt only noticeable on a closer look. */
+  background-image: linear-gradient(rgba(14, 122, 68, 0.8), rgba(14, 122, 68, 0.8));
   box-sizing: border-box;
 }
 
