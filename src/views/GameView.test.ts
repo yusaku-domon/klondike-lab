@@ -26,6 +26,16 @@ function aside(wrapper: ReturnType<typeof mount>) {
   return wrapper.get('#app-sidebar')
 }
 
+// MobileSidebarMenu.vue's own toggle button — a completely separate
+// control from the PC header/panel toggles above (different
+// aria-controls target), always mounted regardless of viewport width in
+// jsdom (the <=600px media query that actually hides it on PC can't be
+// evaluated here — see that component's own test file for its logic-level
+// coverage, and the manual browser check for the visual breakpoint split).
+function mobileMenuToggle(wrapper: ReturnType<typeof mount>) {
+  return wrapper.get('[aria-controls="mobile-sidebar-menu-panel"]')
+}
+
 beforeEach(() => {
   localStorage.clear()
 })
@@ -118,5 +128,71 @@ describe('GameView sidebar integration', () => {
     expect(headerToggle(wrapper).find('.toggle-icon__chevron').exists()).toBe(true)
     expect(panelClose(wrapper).find('.toggle-icon').classes()).toContain('toggle-icon--open')
     expect(panelClose(wrapper).find('.toggle-icon__close').exists()).toBe(true)
+  })
+})
+
+// activeModal now lives here (GameView.vue), not inside Sidebar.vue, so
+// both the PC panel and MobileSidebarMenu.vue's own mobile capsule can
+// open the exact same SettingsModal/SeedModal instances through the same
+// state — this is the integration coverage for that shared wiring.
+describe('GameView modal integration', () => {
+  it('opens Settings via the PC sidebar panel', async () => {
+    const wrapper = mountView()
+    await headerToggle(wrapper).trigger('click')
+
+    await wrapper.get('[aria-label="Settings"]').trigger('click')
+
+    expect(wrapper.find('[aria-label="Settings"][aria-modal="true"]').exists()).toBe(true)
+  })
+
+  it('opens Seed via the PC sidebar panel', async () => {
+    const wrapper = mountView()
+    await headerToggle(wrapper).trigger('click')
+
+    await wrapper.get('[aria-label="Seed"]').trigger('click')
+
+    expect(wrapper.find('[aria-label="Seed"][aria-modal="true"]').exists()).toBe(true)
+  })
+
+  it('opens Settings via MobileSidebarMenu.vue, independent of the PC panel', async () => {
+    const wrapper = mountView()
+    await mobileMenuToggle(wrapper).trigger('click')
+
+    await wrapper.get('.mobile-sidebar-menu [aria-label="Settings"]').trigger('click')
+
+    expect(wrapper.find('[aria-label="Settings"][aria-modal="true"]').exists()).toBe(true)
+    expect(aside(wrapper).classes()).not.toContain('sidebar--open')
+  })
+
+  it('opens Seed via MobileSidebarMenu.vue, independent of the PC panel', async () => {
+    const wrapper = mountView()
+    await mobileMenuToggle(wrapper).trigger('click')
+
+    await wrapper.get('.mobile-sidebar-menu [aria-label="Seed"]').trigger('click')
+
+    expect(wrapper.find('[aria-label="Seed"][aria-modal="true"]').exists()).toBe(true)
+    expect(aside(wrapper).classes()).not.toContain('sidebar--open')
+  })
+
+  it('closes the open modal via its own close button, regardless of which menu opened it', async () => {
+    const wrapper = mountView()
+    await mobileMenuToggle(wrapper).trigger('click')
+    await wrapper.get('.mobile-sidebar-menu [aria-label="Settings"]').trigger('click')
+
+    await wrapper.get('[aria-label="Close"]').trigger('click')
+
+    expect(wrapper.find('[aria-modal="true"]').exists()).toBe(false)
+  })
+
+  it('closing the PC sidebar (e.g. via Escape) also clears a modal opened from it', async () => {
+    const wrapper = mountView()
+    await headerToggle(wrapper).trigger('click')
+    await wrapper.get('[aria-label="Settings"]').trigger('click')
+
+    await document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await wrapper.vm.$nextTick()
+
+    expect(aside(wrapper).classes()).not.toContain('sidebar--open')
+    expect(wrapper.find('[aria-modal="true"]').exists()).toBe(false)
   })
 })
